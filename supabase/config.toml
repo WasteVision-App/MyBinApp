@@ -1,0 +1,8 @@
+
+project_id = "ydiufvjyvqleezvuylor"
+
+[functions.send-invitation-email]
+verify_jwt = true
+
+[functions.send-raw-email]
+verify_jwt = true
