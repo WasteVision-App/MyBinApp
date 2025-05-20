@@ -2,6 +2,7 @@
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import SubmissionCard from './SubmissionCard';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface SubmissionsListProps {
   submissions: any[];
@@ -9,6 +10,8 @@ interface SubmissionsListProps {
 }
 
 const SubmissionsList: React.FC<SubmissionsListProps> = ({ submissions, onViewDetails }) => {
+  const isMobile = useIsMobile();
+  
   if (submissions.length === 0) {
     return (
       <Card>

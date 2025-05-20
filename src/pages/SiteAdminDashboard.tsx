@@ -58,15 +58,15 @@ const SiteAdminDashboard: React.FC = () => {
   }, [user]);
 
   return (
-    <div className="container mx-auto p-6">
-      <div className="flex justify-between items-center mb-6">
+    <div>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
         <div>
           <h1 className="text-2xl font-bold text-mybin-dark">Site Admin Dashboard</h1>
           <p className="text-mybin-gray">Managing waste collection for {companyName}</p>
         </div>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-6">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-mybin-primary">{formCount}</CardTitle>
