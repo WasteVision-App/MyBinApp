@@ -297,7 +297,7 @@ const BinInspectionForm: React.FC<BinInspectionFormProps> = ({
           <>
             <div className="mb-6">
               <Label className="mybin-label">Bin Fullness: {getFullnessLabel(fullness)}</Label>
-              <div className="mt-2">
+              <div className="mt-2 px-3">
                 <Slider
                   value={[getSliderValue()]}
                   min={0}
@@ -306,9 +306,19 @@ const BinInspectionForm: React.FC<BinInspectionFormProps> = ({
                   onValueChange={handleSliderChange}
                   className="py-4"
                 />
-                <div className="flex justify-between text-xs text-mybin-gray mt-1">
-                  {FULLNESS_VALUES.map((value) => (
-                    <span key={String(value)}>{value}</span>
+                <div className="flex justify-between text-xs text-mybin-gray mt-1 relative">
+                  {FULLNESS_VALUES.map((value, index) => (
+                    <span 
+                      key={String(value)}
+                      className="flex-1 text-center"
+                      style={{
+                        position: 'absolute',
+                        left: `${(index * 100) / (FULLNESS_VALUES.length - 1)}%`,
+                        transform: 'translateX(-50%)'
+                      }}
+                    >
+                      {value}
+                    </span>
                   ))}
                 </div>
               </div>

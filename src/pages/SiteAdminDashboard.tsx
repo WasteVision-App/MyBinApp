@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -25,15 +24,30 @@ const SiteAdminDashboard: React.FC = () => {
         if (formError) throw formError;
         setFormCount(count || 0);
         
-        // Fetch submission count for this company
+        // Fetch submission count for this company by first getting the form IDs
         if (user?.company_id) {
-          const { count: subCount, error: subError } = await supabase
-            .from('form_submissions')
-            .select('id', { count: 'exact', head: true })
-            .eq('bin_tally_forms.company_id', user.company_id);
+          // First get all form IDs for this company
+          const { data: forms, error: formsError } = await supabase
+            .from('bin_tally_forms')
+            .select('id')
+            .eq('company_id', user.company_id);
           
-          if (subError) throw subError;
-          setSubmissionCount(subCount || 0);
+          if (formsError) throw formsError;
+          
+          if (forms && forms.length > 0) {
+            const formIds = forms.map(form => form.id);
+            
+            // Then count submissions for these forms
+            const { count: subCount, error: subError } = await supabase
+              .from('form_submissions')
+              .select('id', { count: 'exact', head: true })
+              .in('form_id', formIds);
+            
+            if (subError) throw subError;
+            setSubmissionCount(subCount || 0);
+          } else {
+            setSubmissionCount(0);
+          }
         }
         
         // Fetch company name

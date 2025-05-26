@@ -2,13 +2,13 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from '@/components/ui/use-toast';
-import { UserInfo, BinInspection, MissingBinReport } from '@/types';
+import { UserInfo, BinInspection, MissingBinReport, Site } from '@/types';
 import { useBinData } from './useBinData';
 import { useSessionStorage } from './useSessionStorage';
 import { useSubmitForm } from './useSubmitForm';
 
 export const useFormSubmission = (
-  siteId: string | undefined,
+  site: Site | null,
   userInfo: UserInfo | null,
   inspections: BinInspection[],
   missingBinIds: string[],
@@ -19,7 +19,7 @@ export const useFormSubmission = (
   const [submissionTimestamp, setSubmissionTimestamp] = useState('');
   const navigate = useNavigate();
   
-  // Use our new hooks
+  // Use our hooks
   const { getBinIdToNameMap, processMissingBinReports } = useBinData();
   const { clearFormData, clearAllData } = useSessionStorage();
   const { submitFormData } = useSubmitForm();
@@ -43,7 +43,7 @@ export const useFormSubmission = (
   };
 
   const handleSubmitAllInspections = async () => {
-    if (!siteId || !userInfo) return;
+    if (!site?.id || !userInfo) return;
     
     const timestamp = new Date().toISOString();
     
@@ -52,6 +52,29 @@ export const useFormSubmission = (
     const missingBinReportsRaw: MissingBinReport[] = savedMissingBinReports 
       ? JSON.parse(savedMissingBinReports) 
       : [];
+    
+    // Create a set of inspected and missing bin keys for quick lookup
+    const inspectedBinKeys = new Set(inspections.map(i => `${i.binTypeId}-${i.binName}`));
+    const missingBinKeys = new Set(missingBinIds);
+    
+    // Find uninspected bins and create 0% full inspections for them
+    const uninspectedBins = site.bins.filter(bin => {
+      const binKey = `${bin.id}-${bin.name}`;
+      return !inspectedBinKeys.has(binKey) && !missingBinKeys.has(binKey);
+    });
+    
+    // Create 0% full inspections for uninspected bins
+    const uninspectedInspections: BinInspection[] = uninspectedBins.map(bin => ({
+      binTypeId: bin.id,
+      binName: bin.name,
+      binSize: bin.bin_size || 'Unknown',
+      fullness: 0,
+      contaminated: false,
+      timestamp: timestamp
+    }));
+    
+    // Combine all inspections
+    const allInspections = [...inspections, ...uninspectedInspections];
     
     // Format missing bin reports with proper names before submission
     const formattedMissingBinReports = missingBinReportsRaw.map(report => {
@@ -77,21 +100,22 @@ export const useFormSubmission = (
     });
     
     console.info("Submission:", {
-      siteId,
+      siteId: site.id,
       userId: userInfo.name,
       userType: userInfo.userType,
-      inspections,
+      inspections: allInspections,
       missingBinIds: formattedMissingBins,
       missingBinReports: formattedMissingBinReports,
       submittedAt: timestamp,
-      accessCode
+      accessCode,
+      uninspectedBinsCount: uninspectedInspections.length
     });
     
     // Submit the form data with properly formatted bin information
     const { success } = await submitFormData(
-      siteId,
+      site.id,
       userInfo,
-      inspections,
+      allInspections,
       formattedMissingBins,
       missingBinReports,
       accessCode,
@@ -102,6 +126,14 @@ export const useFormSubmission = (
       setSubmissionTimestamp(timestamp);
       setIsSubmitted(true);
       clearFormData();
+      
+      // Show a message if there were uninspected bins
+      if (uninspectedInspections.length > 0) {
+        toast({
+          title: "Submission Complete",
+          description: `${uninspectedInspections.length} uninspected bin(s) were automatically reported as 0% full.`,
+        });
+      }
     }
   };
 

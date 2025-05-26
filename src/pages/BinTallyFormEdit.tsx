@@ -138,6 +138,20 @@ const BinTallyFormEdit: React.FC = () => {
   };
 
   const handleBinTypeChange = (value: string, index: number) => {
+    // Check if this bin type is already selected in another row
+    const isAlreadySelected = formData.bins.some((bin, binIndex) => 
+      binIndex !== index && bin.bin_type_id === value
+    );
+    
+    if (isAlreadySelected) {
+      toast({
+        title: "Duplicate Bin Type",
+        description: "This bin type has already been selected. Please choose a different bin type.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     const updatedBins = [...formData.bins];
     updatedBins[index].bin_type_id = value;
     setFormData(prev => ({ ...prev, bins: updatedBins }));
@@ -145,13 +159,26 @@ const BinTallyFormEdit: React.FC = () => {
 
   const handleQuantityChange = (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
     let value = parseInt(e.target.value) || 1;
-    value = Math.max(1, Math.min(10, value));
+    value = Math.max(1, Math.min(99, value));
     const updatedBins = [...formData.bins];
     updatedBins[index].quantity = value;
     setFormData(prev => ({ ...prev, bins: updatedBins }));
   };
 
   const addBinRow = () => {
+    // Check if all available bin types have been selected
+    const selectedBinTypeIds = formData.bins.map(bin => bin.bin_type_id).filter(id => id);
+    const availableBinTypes = binTypes.filter(type => !selectedBinTypeIds.includes(type.id));
+    
+    if (availableBinTypes.length === 0) {
+      toast({
+        title: "No More Bin Types Available",
+        description: "All available bin types have already been selected.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setFormData(prev => ({
       ...prev,
       bins: [...prev.bins, { bin_type_id: '', quantity: 1 }]
@@ -167,19 +194,42 @@ const BinTallyFormEdit: React.FC = () => {
 
   const generateUniqueCode = async (): Promise<string> => {
     try {
-      const { data, error } = await supabase
-        .rpc('generate_random_code', { length: 6 });
+      // Try to use the new alpha-only edge function
+      const { data, error } = await supabase.functions.invoke('generate-alpha-code', {
+        body: { length: 6 }
+      });
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error calling generate-alpha-code function:', error);
+        // Fallback to client-side generation
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        let result = '';
+        for (let i = 0; i < 6; i++) {
+          result += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return result;
+      }
       
-      if (data) {
-        return data;
+      if (data?.code) {
+        return data.code;
       } else {
-        return Math.random().toString(36).substring(2, 8).toUpperCase();
+        // Fallback to client-side generation
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        let result = '';
+        for (let i = 0; i < 6; i++) {
+          result += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return result;
       }
     } catch (error) {
       console.error('Error generating code:', error);
-      return Math.random().toString(36).substring(2, 8).toUpperCase();
+      // Fallback to client-side generation
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+      let result = '';
+      for (let i = 0; i < 6; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      return result;
     }
   };
 
@@ -218,11 +268,11 @@ const BinTallyFormEdit: React.FC = () => {
       });
       return;
     }
-    const invalidBin = formData.bins.find(bin => isNaN(bin.quantity) || bin.quantity < 1 || bin.quantity > 10);
+    const invalidBin = formData.bins.find(bin => isNaN(bin.quantity) || bin.quantity < 1 || bin.quantity > 99);
     if (invalidBin) {
       toast({
         title: "Invalid Bin Quantity",
-        description: "Quantity must be between 1 and 10 for all bins.",
+        description: "Quantity must be between 1 and 99 for all bins.",
         variant: "destructive",
       });
       return;

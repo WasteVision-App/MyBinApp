@@ -1,5 +1,40 @@
-
 import { supabase } from '@/integrations/supabase/client';
+
+/**
+ * Helper function to extract just the bin name from various formats
+ */
+export const extractBinName = (binData: any): string => {
+  if (typeof binData === 'object' && binData.name) {
+    return binData.name;
+  }
+  
+  if (typeof binData === 'string') {
+    // Handle format like "2477 (4c5d-9144-7d0293b5cc15-Organic #1)"
+    // Extract the part after the last dash within parentheses
+    const parenMatch = binData.match(/\(.*-([^)]+)\)$/);
+    if (parenMatch) {
+      return parenMatch[1];
+    }
+    
+    // Handle format like "uuid-Organic #1" 
+    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-(.+)$/i;
+    const uuidMatch = binData.match(uuidPattern);
+    if (uuidMatch) {
+      return uuidMatch[1];
+    }
+    
+    // Handle simple format like "id-name"
+    if (binData.includes('-')) {
+      const parts = binData.split('-');
+      // Return everything after the first part (which is likely an ID)
+      return parts.slice(1).join('-');
+    }
+    
+    return binData;
+  }
+  
+  return 'Unknown';
+};
 
 /**
  * Process missing bins to display correctly with bin size

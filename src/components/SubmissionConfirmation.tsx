@@ -8,7 +8,7 @@ interface SubmissionConfirmationProps {
   inspections: BinInspection[];
   bins: BinType[];
   missingBinIds: string[];
-  missingBinReports: MissingBinReport[]; // Include missingBinReports
+  missingBinReports: MissingBinReport[];
   onConfirm: () => void;
   onEdit: () => void;
 }
@@ -56,6 +56,19 @@ const SubmissionConfirmation: React.FC<SubmissionConfirmationProps> = ({
     return 'Unknown Bin';
   };
 
+  // Calculate uninspected bins
+  const getUninspectedBins = () => {
+    const inspectedBinKeys = new Set(inspections.map(i => `${i.binTypeId}-${i.binName}`));
+    const missingBinKeys = new Set(missingBinIds);
+    
+    return bins.filter(bin => {
+      const binKey = `${bin.id}-${bin.name}`;
+      return !inspectedBinKeys.has(binKey) && !missingBinKeys.has(binKey);
+    });
+  };
+
+  const uninspectedBins = getUninspectedBins();
+
   // Format date in Australian format (DD/MM/YYYY h:mm AM/PM)
   const formatDateAU = () => {
     const now = new Date();
@@ -81,6 +94,7 @@ const SubmissionConfirmation: React.FC<SubmissionConfirmationProps> = ({
         Please review your inspection data before final submission:
       </p>
       
+      {/* Inspected Bins Table */}
       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden mb-6">
         <table className="w-full text-sm">
           <thead className="bg-mybin-light text-mybin-dark">
@@ -92,8 +106,6 @@ const SubmissionConfirmation: React.FC<SubmissionConfirmationProps> = ({
           </thead>
           <tbody>
             {inspections.map((inspection, index) => {
-              // Always use our getBinNameById function for consistency
-              // This will ensure the bin size is always included
               const binDisplayName = getBinNameById(inspection.binTypeId);
               
               return (
@@ -121,13 +133,42 @@ const SubmissionConfirmation: React.FC<SubmissionConfirmationProps> = ({
         </table>
       </div>
       
+      {/* Uninspected Bins Table */}
+      {uninspectedBins.length > 0 && (
+        <div className="mb-6">
+          <h3 className="text-mybin-secondary font-medium mb-2">Uninspected Bins</h3>
+          <div className="bg-orange-50 rounded-lg border border-orange-200 overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-orange-100 text-orange-800">
+                <tr>
+                  <th className="text-left p-3">Bin</th>
+                  <th className="text-left p-3">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {uninspectedBins.map((bin, index) => {
+                  const binDisplayName = bin.bin_size ? `${bin.name} ${bin.bin_size}` : bin.name;
+                  
+                  return (
+                    <tr key={`uninspected-${bin.id}-${index}`} className="border-b border-orange-200 last:border-b-0">
+                      <td className="p-3">{binDisplayName}</td>
+                      <td className="p-3 text-orange-700">Reported as Empty (0%)</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+      
+      {/* Missing Bins Section */}
       {missingBins.length > 0 && (
         <div className="mb-6">
           <h3 className="text-mybin-secondary font-medium mb-2">Missing Bins Reported</h3>
           <div className="bg-mybin-light bg-opacity-30 p-3 rounded-md">
             <ul className="list-disc pl-5 text-sm">
               {missingBins.map(bin => {
-                // Try to find a matching missing bin report to display its comment
                 const binId = `${bin.id}-${bin.name}`;
                 const report = missingBinReports.find(r => r.binId === binId);
                 

@@ -96,11 +96,16 @@ const BinTallyFormContent: React.FC<BinTallyFormContentProps> = ({
         onSubmit={onInspectionSubmit}
         onCancel={onCancelInspection}
         onReportMissing={onReportMissingBin}
-        initialData={existingInspection} // Pass existing inspection data if editing
-        missingBinReport={missingBinReport} // Pass missing bin report if editing a missing bin
+        initialData={existingInspection}
+        missingBinReport={missingBinReport}
       />
     );
   }
+  
+  // Calculate how many bins have been inspected or reported as missing
+  const accountedForBins = inspections.length + missingBinIds.length;
+  const totalBins = site ? site.bins.length : 0;
+  const hasInspectedBins = inspections.length > 0 || missingBinIds.length > 0;
   
   return (
     <>
@@ -113,15 +118,28 @@ const BinTallyFormContent: React.FC<BinTallyFormContentProps> = ({
       
       <div className="mt-4 text-center">
         <p className="text-sm text-mybin-gray mb-2">
-          {inspections.length + missingBinIds.length} of {site ? site.bins.length : 0} bins accounted for
+          {accountedForBins} of {totalBins} bins accounted for
         </p>
-        {allBinsAccountedFor() && (
+        
+        {!allBinsAccountedFor() && accountedForBins < totalBins && (
+          <p className="text-xs text-orange-600 mb-3">
+            Uninspected bins will be reported as 0% full when you submit
+          </p>
+        )}
+        
+        {hasInspectedBins && (
           <Button
             onClick={() => onShowSubmissionConfirmation()}
             className="mybin-btn-primary w-full sm:w-auto"
           >
-            Review & Submit
+            {allBinsAccountedFor() ? 'Review & Submit' : 'Submit Inspection'}
           </Button>
+        )}
+        
+        {!hasInspectedBins && (
+          <p className="text-sm text-mybin-gray italic">
+            Select at least one bin to inspect before submitting
+          </p>
         )}
       </div>
     </>

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from '@/components/ui/use-toast';
@@ -48,7 +47,7 @@ const BinTallyForm: React.FC = () => {
     handleSubmitAllInspections,
     handleFinish
   } = useFormSubmission(
-    site?.id,
+    site,
     userInfo,
     inspections,
     missingBinIds,

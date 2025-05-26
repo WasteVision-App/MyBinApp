@@ -17,6 +17,7 @@ import {
   TableCell 
 } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
+import { extractBinName } from '@/utils/binUtils';
 
 interface SubmissionDetailsDialogProps {
   showDetails: boolean;
@@ -29,10 +30,105 @@ const SubmissionDetailsDialog: React.FC<SubmissionDetailsDialogProps> = ({
   setShowDetails,
   selectedSubmission
 }) => {
+  const [formBins, setFormBins] = useState<any[]>([]);
+  const [formDetails, setFormDetails] = useState<any>(null);
+
+  useEffect(() => {
+    const fetchFormData = async () => {
+      if (!selectedSubmission?.form_id) return;
+
+      try {
+        // Fetch form bins
+        const { data: binsData, error: binsError } = await supabase
+          .from('form_bins')
+          .select(`
+            id,
+            quantity,
+            bin_types (
+              id,
+              name,
+              bin_size
+            )
+          `)
+          .eq('form_id', selectedSubmission.form_id);
+
+        if (binsError) throw binsError;
+        console.log('Fetched form bins:', binsData);
+        setFormBins(binsData || []);
+
+        // Fetch form details including area
+        const { data: formData, error: formError } = await supabase
+          .from('bin_tally_forms')
+          .select('area, location')
+          .eq('id', selectedSubmission.form_id)
+          .maybeSingle();
+
+        if (formError) throw formError;
+        console.log('Fetched form details:', formData);
+        setFormDetails(formData);
+      } catch (error) {
+        console.error('Error fetching form data:', error);
+      }
+    };
+
+    if (showDetails && selectedSubmission) {
+      fetchFormData();
+    }
+  }, [showDetails, selectedSubmission]);
+
   const formatDateAU = (dateString: string) => {
     const date = new Date(dateString);
     return format(date, 'dd/MM/yyyy h:mm a');
   };
+
+  const getAllBinsWithInspectionStatus = () => {
+    if (!formBins.length) return [];
+
+    const inspections = selectedSubmission?.data?.inspections || [];
+    console.log('Inspections from submission:', inspections);
+    const allBins: any[] = [];
+
+    // Generate all bins based on form_bins with quantities
+    formBins.forEach((formBin: any) => {
+      const binType = formBin.bin_types;
+      for (let i = 1; i <= formBin.quantity; i++) {
+        const binName = formBin.quantity > 1 ? `${binType.name} #${i}` : binType.name;
+        const binDisplayName = binType.bin_size ? `${binName} ${binType.bin_size}` : binName;
+        
+        // Find if this bin was inspected
+        const inspection = inspections.find((insp: any) => 
+          insp.binTypeId === binType.id && insp.binName === binName
+        );
+
+        console.log(`Checking bin ${binName}, inspection found:`, inspection);
+
+        if (inspection) {
+          // Bin was inspected
+          allBins.push({
+            binName: binDisplayName,
+            fullness: inspection.fullness > 100 ? 'Overflow' : `${inspection.fullness}%`,
+            contaminated: inspection.contaminated ? 'Yes' : 'No',
+            details: inspection.contaminationDetails || '-',
+            isInspected: true
+          });
+        } else {
+          // Bin was not inspected - set details to "uninspected"
+          allBins.push({
+            binName: binDisplayName,
+            fullness: '0%',
+            contaminated: 'No',
+            details: 'uninspected',
+            isInspected: false
+          });
+        }
+      }
+    });
+
+    console.log('All bins with inspection status:', allBins);
+    return allBins;
+  };
+
+  const allBins = getAllBinsWithInspectionStatus();
 
   return (
     <Dialog open={showDetails} onOpenChange={setShowDetails}>
@@ -63,50 +159,47 @@ const SubmissionDetailsDialog: React.FC<SubmissionDetailsDialogProps> = ({
                 </div>
                 <div>
                   <p className="text-sm text-mybin-gray">Submitted By</p>
-                  <p className="font-medium">{selectedSubmission.submitted_by}</p>
+                  <p className="font-medium">{selectedSubmission.submitted_by} - {selectedSubmission.data?.userType || 'N/A'}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-mybin-gray">User Type</p>
-                  <p className="font-medium">{selectedSubmission.data?.userType || 'N/A'}</p>
+                  <p className="text-sm text-mybin-gray">Bin Area</p>
+                  <p className="font-medium">{formDetails?.area || 'N/A'}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-mybin-gray">Submission Time</p>
-                  <p className="font-medium">{formatDateAU(selectedSubmission.submitted_at)}</p>
+                  <p className="text-sm text-mybin-gray">Location</p>
+                  <p className="font-medium">{formDetails?.location || 'N/A'}</p>
                 </div>
               </div>
             </div>
 
-            {selectedSubmission.data?.inspections?.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Bin Name</TableHead>
-                    <TableHead>Fullness</TableHead>
-                    <TableHead>Contaminated</TableHead>
-                    <TableHead>Details</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {selectedSubmission.data.inspections.map((inspection: any, index: number) => (
-                    <TableRow key={index}>
-                      <TableCell>{inspection.binName}</TableCell>
-                      <TableCell>
-                        {inspection.fullness > 100 
-                          ? 'Overflow' 
-                          : `${inspection.fullness}%`}
-                      </TableCell>
-                      <TableCell>
-                        {inspection.contaminated ? 'Yes' : 'No'}
-                      </TableCell>
-                      <TableCell>
-                        {inspection.contaminationDetails || '-'}
-                      </TableCell>
+            {allBins.length > 0 ? (
+              <div>
+                <h3 className="text-lg font-medium mb-2">Bin Inspection Details</h3>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Bin Name</TableHead>
+                      <TableHead>Fullness</TableHead>
+                      <TableHead>Contaminated</TableHead>
+                      <TableHead>Details</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {allBins.map((bin: any, index: number) => (
+                      <TableRow key={index} className={!bin.isInspected ? 'bg-orange-50' : ''}>
+                        <TableCell>{bin.binName}</TableCell>
+                        <TableCell>{bin.fullness}</TableCell>
+                        <TableCell>{bin.contaminated}</TableCell>
+                        <TableCell className={!bin.isInspected ? 'text-orange-700 font-medium' : ''}>
+                          {bin.details}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             ) : (
-              <p className="text-sm text-mybin-gray">No bin inspections recorded</p>
+              <p className="text-sm text-mybin-gray">No bin inspection data available</p>
             )}
           
             {selectedSubmission.data?.missingBinReports?.length > 0 && (
@@ -122,7 +215,7 @@ const SubmissionDetailsDialog: React.FC<SubmissionDetailsDialogProps> = ({
                   <TableBody>
                     {selectedSubmission.data.missingBinReports.map((report: any, index: number) => (
                       <TableRow key={index}>
-                        <TableCell>{report.binName || 'Unknown'}</TableCell>
+                        <TableCell>{extractBinName(report.binName || report.binId)}</TableCell>
                         <TableCell>{report.comment}</TableCell>
                       </TableRow>
                     ))}
@@ -143,7 +236,7 @@ const SubmissionDetailsDialog: React.FC<SubmissionDetailsDialogProps> = ({
                   <TableBody>
                     {selectedSubmission.data.missingBinIds.map((missingBin: any, index: number) => (
                       <TableRow key={index}>
-                        <TableCell>{typeof missingBin === 'object' ? missingBin.name : missingBin}</TableCell>
+                        <TableCell>{extractBinName(missingBin)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

@@ -20,7 +20,10 @@ const AccessCodeForm: React.FC<AccessCodeFormProps> = ({ onSubmitSuccess }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!accessCode.trim()) {
+    // Normalize the code (uppercase, remove non-alphabetic characters)
+    const normalizedCode = accessCode.trim().toUpperCase().replace(/[^A-Z]/g, '');
+    
+    if (!normalizedCode) {
       toast({
         title: "Access Code Required",
         description: "Please enter an access code to continue.",
@@ -32,7 +35,7 @@ const AccessCodeForm: React.FC<AccessCodeFormProps> = ({ onSubmitSuccess }) => {
     setLoading(true);
 
     try {
-      console.log('Validating input:', accessCode.trim());
+      console.log('Validating input:', normalizedCode);
       
       // Check if the input is a form ID (UUID format) or an access code
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -81,11 +84,11 @@ const AccessCodeForm: React.FC<AccessCodeFormProps> = ({ onSubmitSuccess }) => {
         return;
       }
       
-      // Check if the input is a form's unique_code (like 7PYWOK)
+      // Check if the input is a form's unique_code (alpha-only)
       const { data: formByUniqueCode, error: uniqueCodeError } = await supabase
         .from('bin_tally_forms')
         .select('id')
-        .eq('unique_code', accessCode.trim())
+        .eq('unique_code', normalizedCode)
         .maybeSingle();
       
       if (formByUniqueCode) {
@@ -93,7 +96,7 @@ const AccessCodeForm: React.FC<AccessCodeFormProps> = ({ onSubmitSuccess }) => {
         
         // Store form ID directly
         const formData = {
-          form_id: accessCode.trim() // Store the unique_code as form_id
+          form_id: normalizedCode // Store the unique_code as form_id
         };
         
         setFormData(formData);
@@ -114,11 +117,11 @@ const AccessCodeForm: React.FC<AccessCodeFormProps> = ({ onSubmitSuccess }) => {
         return;
       }
       
-      // If not found, check if the input might be an invitation code
+      // If not found, check if the input might be an invitation code (alpha-only)
       const { data: invitation, error: invitationError } = await supabase
         .from('invitations')
         .select('*')
-        .eq('access_code', accessCode.trim())
+        .eq('access_code', normalizedCode)
         .eq('status', 'active')
         .maybeSingle();
       
@@ -150,7 +153,7 @@ const AccessCodeForm: React.FC<AccessCodeFormProps> = ({ onSubmitSuccess }) => {
       }
       
       // If we reach here, we couldn't validate the code or ID
-      console.error('Invalid access code or form ID:', accessCode.trim());
+      console.error('Invalid access code or form ID:', normalizedCode);
       toast({
         title: "Invalid Code",
         description: "The code you entered is not valid. Please check and try again.",
@@ -175,10 +178,12 @@ const AccessCodeForm: React.FC<AccessCodeFormProps> = ({ onSubmitSuccess }) => {
         <div>
           <Input
             type="text"
-            placeholder="Enter access code or form ID"
+            placeholder="Form or Access code"
             value={accessCode}
-            onChange={(e) => setAccessCode(e.target.value)}
+            onChange={(e) => setAccessCode(e.target.value.toUpperCase().replace(/[^A-Z]/g, ''))}
             required
+            maxLength={8}
+            className="uppercase"
           />
         </div>
         <Button type="submit" className="w-full" disabled={loading}>

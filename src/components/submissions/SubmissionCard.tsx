@@ -1,9 +1,9 @@
-
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Eye } from 'lucide-react';
 import { format } from 'date-fns';
+import { extractBinName } from '@/utils/binUtils';
 
 interface SubmissionCardProps {
   submission: any;
@@ -70,7 +70,7 @@ const SubmissionCard: React.FC<SubmissionCardProps> = ({ submission, onViewDetai
               {submission.data.missingBinReports.map((report: any, idx: number) => (
                 <li key={idx} className="mb-1">
                   <span className="font-medium break-words">
-                    {report.binName || 'Unknown'}:
+                   {extractBinName(report.binName || report.binId)}:
                   </span> {report.comment}
                 </li>
               ))}
