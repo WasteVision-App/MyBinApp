@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -14,8 +13,8 @@ const CodeEntryForm: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Normalize the code (uppercase, remove spaces)
-    const normalizedCode = code.toUpperCase().replace(/\s+/g, '');
+    // Normalize the code (uppercase, remove spaces, keep only alphabetic characters)
+    const normalizedCode = code.toUpperCase().replace(/[^A-Z]/g, '');
     setLoading(true);
     
     try {
@@ -85,11 +84,12 @@ const CodeEntryForm: React.FC = () => {
             </label>
             <Input
               id="code"
-              className="mybin-input"
+              className="mybin-input uppercase"
               value={code}
-              onChange={(e) => setCode(e.target.value)}
-              placeholder="e.g., ABC123"
+              onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^A-Z]/g, ''))}
+              placeholder="e.g., ABCDEF"
               required
+              maxLength={8}
             />
           </div>
           

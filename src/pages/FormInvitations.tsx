@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -229,15 +228,44 @@ const FormInvitations: React.FC = () => {
   };
 
   const generateAccessCode = async (): Promise<string> => {
-    const { data, error } = await supabase
-      .rpc('generate_random_code', { length: 8 });
-    
-    if (error) {
+    try {
+      // Try to use the new alpha-only edge function
+      const { data, error } = await supabase.functions.invoke('generate-alpha-code', {
+        body: { length: 8 }
+      });
+      
+      if (error) {
+        console.error('Error calling generate-alpha-code function:', error);
+        // Fallback to client-side generation
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        let result = '';
+        for (let i = 0; i < 8; i++) {
+          result += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return result;
+      }
+      
+      if (data?.code) {
+        return data.code;
+      } else {
+        // Fallback to client-side generation
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        let result = '';
+        for (let i = 0; i < 8; i++) {
+          result += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return result;
+      }
+    } catch (error) {
       console.error('Error generating code:', error);
-      return Math.random().toString(36).substring(2, 10).toUpperCase();
+      // Fallback to client-side generation
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+      let result = '';
+      for (let i = 0; i < 8; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      return result;
     }
-    
-    return data;
   };
 
   if (loading && !formDetails) {

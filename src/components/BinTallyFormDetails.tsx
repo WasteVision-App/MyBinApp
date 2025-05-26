@@ -61,21 +61,21 @@ const BinTallyFormDetails: React.FC<BinTallyFormDetailsProps> = ({
         name="location"
         value={formData.location}
         onChange={handleInputChange}
-        placeholder="Enter location"
+        placeholder="Enter location address or name of site"
         required
       />
     </div>
     
     <div>
       <Label htmlFor="area" className="required">
-        Area <span className="text-red-500">*</span>
+        Bin Area <span className="text-red-500">*</span>
       </Label>
       <Input
         id="area"
         name="area"
         value={formData.area}
         onChange={handleInputChange}
-        placeholder="Enter area"
+        placeholder="Enter bin area name or location"
         required
       />
     </div>
