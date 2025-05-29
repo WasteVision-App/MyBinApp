@@ -95,7 +95,7 @@ export const useFetchFormData = (currentForm: FormData | null) => {
 
       console.log('Fetching form data with ID:', formId);
       
-      // Get form data using the form_id - Now including bin_size in the query
+      // Get form data using the form_id - Now including both bin_size and bin_uom in the query
       // Force cache refresh with timestamp parameter to prevent caching
       const timestamp = new Date().getTime();
       const { data, error } = await supabase
@@ -121,7 +121,8 @@ export const useFetchFormData = (currentForm: FormData | null) => {
               name,
               color,
               icon,
-              bin_size
+              bin_size,
+              bin_uom
             )
           )
         `)

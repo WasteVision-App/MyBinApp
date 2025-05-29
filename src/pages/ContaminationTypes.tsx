@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
@@ -45,11 +44,22 @@ const ContaminationTypes: React.FC = () => {
       // Fetch bin types
       const { data: binTypesData, error: binTypesError } = await supabase
         .from('bin_types')
-        .select('*')
+        .select('id, name, color, icon, bin_size, bin_uom')
         .order('name');
       
       if (binTypesError) throw binTypesError;
-      setBinTypes(binTypesData || []);
+      
+      // Map the database results to our BinType interface
+      const mappedBinTypes: BinType[] = (binTypesData || []).map(item => ({
+        id: item.id,
+        name: item.name,
+        color: item.color || '',
+        icon: item.icon || 'trash-2',
+        bin_size: item.bin_size || 'Unknown',
+        bin_uom: item.bin_uom || '',
+      }));
+      
+      setBinTypes(mappedBinTypes);
       
       // Fetch contamination types
       const { data: contaminationData, error: contaminationError } = await supabase

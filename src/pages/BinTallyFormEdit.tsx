@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -59,12 +58,22 @@ const BinTallyFormEdit: React.FC = () => {
       try {
         const { data, error } = await supabase
           .from('bin_types')
-          .select('*')
+          .select('id, name, color, icon, bin_size, bin_uom, created_at, updated_at')
           .order('name');
         
         if (error) throw error;
         
-        setBinTypes(data || []);
+        // Map the database results to our BinType interface
+        const mappedData: BinType[] = (data || []).map(item => ({
+          id: item.id,
+          name: item.name,
+          color: item.color || '',
+          icon: item.icon || 'trash-2',
+          bin_size: item.bin_size || 'Unknown',
+          bin_uom: item.bin_uom || '',
+        }));
+        
+        setBinTypes(mappedData);
       } catch (error: any) {
         toast({
           title: "Error fetching bin types",

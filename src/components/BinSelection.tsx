@@ -30,10 +30,20 @@ const BinSelection: React.FC<BinSelectionProps> = ({
     return <IconComponent size={24} className="shrink-0" />;
   };
 
-  // Format bin display name to include size if available
+  // Format bin display name to include size and UOM if available
   const formatBinDisplayName = (bin: BinType): string => {
-    return bin.bin_size ? `${bin.name} (${bin.bin_size})` : bin.name;
+    console.log('Formatting bin display name for:', bin.name, 'Size:', bin.bin_size, 'UOM:', bin.bin_uom);
+    
+    if (bin.bin_size && bin.bin_uom) {
+      return `${bin.name} (${bin.bin_size}${bin.bin_uom})`;
+    } else if (bin.bin_size) {
+      return `${bin.name} (${bin.bin_size})`;
+    }
+    return bin.name;
   };
+
+  // Debug: Log all bins data
+  console.log('BinSelection received bins:', bins);
 
   return (
     <div className="mybin-card">

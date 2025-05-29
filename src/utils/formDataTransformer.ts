@@ -11,6 +11,7 @@ interface FormBin {
     color: string;
     icon: string | null;
     bin_size: string | null;
+    bin_uom: string | null;
   };
 }
 
@@ -51,7 +52,8 @@ export const transformFormDataToSite = (formData: FormResult): Site => {
           name: `${formBin.bin_types.name}${binSuffix}`,
           color: formBin.bin_types.color,
           icon: formBin.bin_types.icon || 'trash-2',
-          bin_size: formBin.bin_types.bin_size || 'Unknown'
+          bin_size: formBin.bin_types.bin_size || 'Unknown',
+          bin_uom: formBin.bin_types.bin_uom || ''
         });
       }
     });

@@ -67,6 +67,10 @@ const BinFormRows: React.FC<BinFormRowsProps> = ({
                 <SelectGroup>
                   {binTypes.map((type) => {
                     const isDisabled = selectedBinTypeIds.includes(type.id) && bin.bin_type_id !== type.id;
+                    const sizeDisplay = type.bin_size && type.bin_uom 
+                      ? `${type.bin_size}${type.bin_uom}` 
+                      : type.bin_size || 'Size not specified';
+                    
                     return (
                       <SelectItem 
                         key={type.id} 
@@ -74,7 +78,7 @@ const BinFormRows: React.FC<BinFormRowsProps> = ({
                         disabled={isDisabled}
                         className={isDisabled ? "opacity-50 cursor-not-allowed" : ""}
                       >
-                        {type.name} - {type.bin_size || 'Size not specified'}
+                        {type.name} - {sizeDisplay}
                         {isDisabled && " (Already selected)"}
                       </SelectItem>
                     );

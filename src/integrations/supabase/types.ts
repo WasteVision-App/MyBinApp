@@ -66,6 +66,7 @@ export type Database = {
       bin_types: {
         Row: {
           bin_size: string | null
+          bin_uom: string | null
           color: string | null
           created_at: string
           icon: string | null
@@ -75,6 +76,7 @@ export type Database = {
         }
         Insert: {
           bin_size?: string | null
+          bin_uom?: string | null
           color?: string | null
           created_at?: string
           icon?: string | null
@@ -84,6 +86,7 @@ export type Database = {
         }
         Update: {
           bin_size?: string | null
+          bin_uom?: string | null
           color?: string | null
           created_at?: string
           icon?: string | null
