@@ -50,20 +50,38 @@ const SubmissionConfirmation: React.FC<SubmissionConfirmationProps> = ({
 
   const getBinNameById = (binId: string) => {
     const bin = bins.find(bin => bin.id === binId);
-    if (bin) {
-      return bin.bin_size ? `${bin.name} ${bin.bin_size}` : bin.name;
+    return bin ? bin.name : 'Unknown Bin';
+  };
+
+  // Format bin name with size and UOM
+  const formatBinDisplayName = (binId: string, binName?: string) => {
+    const bin = bins.find(bin => bin.id === binId);
+    
+    // Use the provided binName if available, otherwise fall back to bin lookup
+    const name = binName || (bin ? bin.name : 'Unknown Bin');
+    
+    if (bin && bin.bin_size && bin.bin_uom) {
+      return `${name} (${bin.bin_size}${bin.bin_uom})`;
+    } else if (bin && bin.bin_size) {
+      return `${name} (${bin.bin_size})`;
     }
-    return 'Unknown Bin';
+    return name;
   };
 
   // Calculate uninspected bins
   const getUninspectedBins = () => {
     const inspectedBinKeys = new Set(inspections.map(i => `${i.binTypeId}-${i.binName}`));
-    const missingBinKeys = new Set(missingBinIds);
     
     return bins.filter(bin => {
       const binKey = `${bin.id}-${bin.name}`;
-      return !inspectedBinKeys.has(binKey) && !missingBinKeys.has(binKey);
+      // Check if this bin is inspected
+      const isInspected = inspectedBinKeys.has(binKey);
+      // Check if this bin is missing by looking for a match in missingBinIds
+      const isMissing = missingBinIds.includes(binKey);
+      
+      console.log(`Checking bin ${binKey}: inspected=${isInspected}, missing=${isMissing}`);
+      
+      return !isInspected && !isMissing;
     });
   };
 
@@ -106,7 +124,8 @@ const SubmissionConfirmation: React.FC<SubmissionConfirmationProps> = ({
           </thead>
           <tbody>
             {inspections.map((inspection, index) => {
-              const binDisplayName = getBinNameById(inspection.binTypeId);
+              // Use the inspection's binName to get the correct display name
+              const binDisplayName = formatBinDisplayName(inspection.binTypeId, inspection.binName);
               
               return (
                 <tr key={`${inspection.binTypeId}-${inspection.binName}-${index}`} className="border-b border-gray-200">
@@ -147,7 +166,7 @@ const SubmissionConfirmation: React.FC<SubmissionConfirmationProps> = ({
               </thead>
               <tbody>
                 {uninspectedBins.map((bin, index) => {
-                  const binDisplayName = bin.bin_size ? `${bin.name} ${bin.bin_size}` : bin.name;
+                  const binDisplayName = formatBinDisplayName(bin.id, bin.name);
                   
                   return (
                     <tr key={`uninspected-${bin.id}-${index}`} className="border-b border-orange-200 last:border-b-0">
@@ -171,10 +190,11 @@ const SubmissionConfirmation: React.FC<SubmissionConfirmationProps> = ({
               {missingBins.map(bin => {
                 const binId = `${bin.id}-${bin.name}`;
                 const report = missingBinReports.find(r => r.binId === binId);
+                const displayName = formatBinDisplayName(bin.id, bin.name);
                 
                 return (
                   <li key={`missing-${bin.id}`} className="mb-2">
-                    <div className="font-medium">{bin.name}</div>
+                    <div className="font-medium">{displayName}</div>
                     {report?.comment && (
                       <div className="text-xs text-mybin-gray mt-1">
                         Reason: {report.comment}

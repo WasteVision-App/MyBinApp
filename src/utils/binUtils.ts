@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 
 /**
@@ -110,7 +111,7 @@ export const processMissingBins = async (missingIds: string[]) => {
     }
   }
   
-  // Additional database lookup for ALL bin IDs to get sizes even if we have the name already
+  // Additional database lookup for ALL bin IDs to get sizes for bins that don't already have size info
   const allBinIds = processedBins
     .filter(bin => bin.id.length === 36) // Only fetch valid UUIDs
     .map(bin => bin.id);
@@ -131,12 +132,16 @@ export const processMissingBins = async (missingIds: string[]) => {
           }
         });
         
-        // Update processed bins with size information
+        // Update processed bins with size information only if they don't already have it
         processedBins.forEach(bin => {
           const binSize = binSizeMap.get(bin.id);
-          if (binSize && bin.name && !bin.name.includes(binSize)) {
-            // If we have a name but it doesn't include the size, add it
-            bin.name = `${bin.name} ${binSize}`;
+          if (binSize && bin.name) {
+            // Check if the name already contains size information (like "140L" or "140")
+            const hasSize = bin.name.match(/\b\d+[A-Za-z]*\b/);
+            if (!hasSize) {
+              // Only add size if it's not already present
+              bin.name = `${bin.name} ${binSize}`;
+            }
           }
         });
       }

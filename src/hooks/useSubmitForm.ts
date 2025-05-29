@@ -8,28 +8,23 @@ export const useSubmitForm = () => {
     siteId: string,
     userInfo: UserInfo,
     inspections: BinInspection[],
-    missingBinIds: any[],
-    missingBinReports: MissingBinReport[],
+    missingBinIds: any[], // Keep for compatibility but won't be used
+    missingBinReports: MissingBinReport[], // Keep for compatibility but won't be used
     accessCode: string | undefined,
     timestamp: string
   ) => {
     if (!siteId || !userInfo) return { success: false };
     
-    // We're now receiving already properly formatted missing bin reports and missing bin IDs
-    // No need to reformat them here
-    
     const submission = {
       siteId,
       userId: userInfo.name,
       userType: userInfo.userType,
-      inspections,
-      missingBinIds: missingBinIds.length > 0 ? missingBinIds : undefined,
-      missingBinReports: missingBinReports.length > 0 ? missingBinReports : undefined,
+      inspections, // Now contains all bins with proper flags
       submittedAt: timestamp,
       accessCode
     };
     
-    console.log('Submission:', submission);
+    console.log('Simplified submission data being saved:', submission);
     
     try {
       const { error } = await supabase

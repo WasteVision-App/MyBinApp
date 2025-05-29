@@ -24,24 +24,6 @@ export const useFormSubmission = (
   const { clearFormData, clearAllData } = useSessionStorage();
   const { submitFormData } = useSubmitForm();
 
-  // Get proper bin name and size from binTypes array
-  const getBinNameAndSize = (binId: string): { name: string, size: string } => {
-    // Extract the UUID part if it's in a format like "uuid-name"
-    const uuidMatch = binId.match(/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);
-    const uuid = uuidMatch ? uuidMatch[1] : binId;
-    
-    // Try to extract name from the format "uuid-name"
-    if (binId.includes('-')) {
-      const parts = binId.split('-');
-      if (parts.length > 1) {
-        const nameParts = parts.slice(1); // Skip the first part (assumed to be ID)
-        return { name: nameParts.join('-'), size: '' };
-      }
-    }
-    
-    return { name: 'Unknown', size: '' };
-  };
-
   const handleSubmitAllInspections = async () => {
     if (!site?.id || !userInfo) return;
     
@@ -53,71 +35,103 @@ export const useFormSubmission = (
       ? JSON.parse(savedMissingBinReports) 
       : [];
     
-    // Create a set of inspected and missing bin keys for quick lookup
+    console.log("Raw missing bin reports from session:", missingBinReportsRaw);
+    
+    // Create a set of inspected bin keys for quick lookup
     const inspectedBinKeys = new Set(inspections.map(i => `${i.binTypeId}-${i.binName}`));
+    
+    // Create a set of missing bin keys
     const missingBinKeys = new Set(missingBinIds);
     
-    // Find uninspected bins and create 0% full inspections for them
+    // Find uninspected bins (not inspected and not missing)
     const uninspectedBins = site.bins.filter(bin => {
       const binKey = `${bin.id}-${bin.name}`;
       return !inspectedBinKeys.has(binKey) && !missingBinKeys.has(binKey);
     });
     
-    // Create 0% full inspections for uninspected bins
-    const uninspectedInspections: BinInspection[] = uninspectedBins.map(bin => ({
-      binTypeId: bin.id,
-      binName: bin.name,
-      binSize: bin.bin_size || 'Unknown',
-      fullness: 0,
-      contaminated: false,
-      timestamp: timestamp
-    }));
+    // Create all inspections with proper flags
+    const allInspections: BinInspection[] = [];
     
-    // Combine all inspections
-    const allInspections = [...inspections, ...uninspectedInspections];
-    
-    // Format missing bin reports with proper names before submission
-    const formattedMissingBinReports = missingBinReportsRaw.map(report => {
-      const { name, size } = getBinNameAndSize(report.binId);
-      const formattedName = size ? `${name} ${size}` : name;
-      
-      return {
-        ...report,
-        binName: formattedName,
-        binId: report.binId // Keep the original binId for reference
-      };
+    // Add regular inspections with bin UOM
+    inspections.forEach(inspection => {
+      const bin = site.bins.find(b => b.id === inspection.binTypeId && b.name === inspection.binName);
+      allInspections.push({
+        ...inspection,
+        binUom: bin?.bin_uom || '',
+        isUninspected: false,
+        isMissing: false
+      });
     });
     
-    // Format missing bin IDs
-    const formattedMissingBins = missingBinIds.map(id => {
-      const { name, size } = getBinNameAndSize(id);
-      const formattedName = size ? `${name} ${size}` : name;
-      
-      return {
-        id: id, // Keep original ID for reference
-        name: formattedName
-      };
+    // Add uninspected bins
+    uninspectedBins.forEach(bin => {
+      allInspections.push({
+        binTypeId: bin.id,
+        binName: bin.name,
+        binSize: bin.bin_size || 'Unknown',
+        binUom: bin.bin_uom || '',
+        fullness: undefined,
+        contaminated: undefined,
+        isUninspected: true,
+        isMissing: false,
+        timestamp: timestamp
+      });
     });
     
-    console.info("Submission:", {
+    // Add missing bins - fixed parsing logic for UUID-based binIds
+    missingBinReportsRaw.forEach(report => {
+      console.log("Processing missing bin report:", report);
+      
+      // The binId format is "uuid-binName" where uuid can contain dashes
+      // Find the corresponding bin in site.bins by checking if binId starts with bin.id
+      const matchingBin = site.bins.find(bin => {
+        const expectedBinKey = `${bin.id}-${bin.name}`;
+        return report.binId === expectedBinKey;
+      });
+      
+      if (matchingBin) {
+        console.log("Found matching bin for missing report:", matchingBin);
+        allInspections.push({
+          binTypeId: matchingBin.id,
+          binName: matchingBin.name,
+          binSize: matchingBin.bin_size || 'Unknown',
+          binUom: matchingBin.bin_uom || '',
+          fullness: undefined,
+          contaminated: undefined,
+          isUninspected: false,
+          isMissing: true,
+          missingComment: report.comment,
+          timestamp: timestamp
+        });
+        console.log("Added missing bin inspection:", {
+          binTypeId: matchingBin.id,
+          binName: matchingBin.name,
+          isMissing: true,
+          missingComment: report.comment
+        });
+      } else {
+        console.error("Could not find matching bin for missing report:", report.binId);
+      }
+    });
+    
+    console.info("Simplified submission:", {
       siteId: site.id,
       userId: userInfo.name,
       userType: userInfo.userType,
       inspections: allInspections,
-      missingBinIds: formattedMissingBins,
-      missingBinReports: formattedMissingBinReports,
       submittedAt: timestamp,
       accessCode,
-      uninspectedBinsCount: uninspectedInspections.length
+      uninspectedBinsCount: uninspectedBins.length,
+      missingBinsCount: missingBinReportsRaw.length
     });
     
-    // Submit the form data with properly formatted bin information
+    // Submit the form data with simplified structure
     const { success } = await submitFormData(
       site.id,
       userInfo,
       allInspections,
-      formattedMissingBins,
-      missingBinReports,
+      [], // No longer using separate arrays
+      [], // No longer using separate arrays
       accessCode,
       timestamp
     );
@@ -127,13 +141,21 @@ export const useFormSubmission = (
       setIsSubmitted(true);
       clearFormData();
       
-      // Show a message if there were uninspected bins
-      if (uninspectedInspections.length > 0) {
-        toast({
-          title: "Submission Complete",
-          description: `${uninspectedInspections.length} uninspected bin(s) were automatically reported as 0% full.`,
-        });
+      // Show summary message
+      const uninspectedCount = uninspectedBins.length;
+      const missingCount = missingBinReportsRaw.length;
+      let message = "Submission complete.";
+      if (uninspectedCount > 0 || missingCount > 0) {
+        const parts = [];
+        if (uninspectedCount > 0) parts.push(`${uninspectedCount} uninspected bin(s)`);
+        if (missingCount > 0) parts.push(`${missingCount} missing bin(s)`);
+        message = `Submission complete. ${parts.join(' and ')} were automatically recorded.`;
       }
+      
+      toast({
+        title: "Submission Complete",
+        description: message,
+      });
     }
   };
 

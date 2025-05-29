@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -45,6 +44,18 @@ const BinInspectionForm: React.FC<BinInspectionFormProps> = ({
   // Initialize missing bin state from missingBinReport prop if provided
   const [isMissing, setIsMissing] = useState(!!missingBinReport);
   const [missingComment, setMissingComment] = useState(missingBinReport?.comment || '');
+
+  // Format bin display name to include size and UOM if available
+  const formatBinSizeDisplay = (bin: BinType): string => {
+    console.log('Formatting bin size display for:', bin.name, 'Size:', bin.bin_size, 'UOM:', bin.bin_uom);
+    
+    if (bin.bin_size && bin.bin_uom) {
+      return `${bin.bin_size}${bin.bin_uom}`;
+    } else if (bin.bin_size) {
+      return bin.bin_size;
+    }
+    return 'Size not specified';
+  };
 
   useEffect(() => {
     const fetchContaminationTypes = async () => {
@@ -169,7 +180,8 @@ const BinInspectionForm: React.FC<BinInspectionFormProps> = ({
     const inspection: BinInspection = {
       binTypeId: bin.id,
       binName: bin.name,
-      binSize: bin.bin_size || 'Unknown',
+      binSize: bin.bin_size || 'Size not specified',
+      binUom: bin.bin_uom || '',
       fullness: submissionFullness,
       contaminated,
       contaminationDetails: contaminated && selectedContaminationTypes.length > 0 
@@ -259,7 +271,7 @@ const BinInspectionForm: React.FC<BinInspectionFormProps> = ({
         </div>
         <div>
           <h2 className="mybin-subtitle">{bin.name} Inspection</h2>
-          <p className="text-sm text-mybin-gray">{bin.bin_size || 'Size not specified'}</p>
+          <p className="text-sm text-mybin-gray">{formatBinSizeDisplay(bin)}</p>
         </div>
       </div>
       

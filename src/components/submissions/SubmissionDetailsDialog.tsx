@@ -8,16 +8,11 @@ import {
   DialogTitle, 
   DialogDescription 
 } from '@/components/ui/dialog';
-import { 
-  Table, 
-  TableHeader, 
-  TableRow, 
-  TableHead, 
-  TableBody, 
-  TableCell 
-} from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
-import { extractBinName } from '@/utils/binUtils';
+import BasicInformationSection from './BasicInformationSection';
+import InspectedBinsTable from './InspectedBinsTable';
+import UninspectedBinsTable from './UninspectedBinsTable';
+import MissingBinsTable from './MissingBinsTable';
 
 interface SubmissionDetailsDialogProps {
   showDetails: boolean;
@@ -38,7 +33,7 @@ const SubmissionDetailsDialog: React.FC<SubmissionDetailsDialogProps> = ({
       if (!selectedSubmission?.form_id) return;
 
       try {
-        // Fetch form bins
+        // Fetch form bins with bin_uom included
         const { data: binsData, error: binsError } = await supabase
           .from('form_bins')
           .select(`
@@ -47,7 +42,8 @@ const SubmissionDetailsDialog: React.FC<SubmissionDetailsDialogProps> = ({
             bin_types (
               id,
               name,
-              bin_size
+              bin_size,
+              bin_uom
             )
           `)
           .eq('form_id', selectedSubmission.form_id);
@@ -81,54 +77,42 @@ const SubmissionDetailsDialog: React.FC<SubmissionDetailsDialogProps> = ({
     return format(date, 'dd/MM/yyyy h:mm a');
   };
 
-  const getAllBinsWithInspectionStatus = () => {
-    if (!formBins.length) return [];
-
+  const getBinsByCategory = () => {
     const inspections = selectedSubmission?.data?.inspections || [];
-    console.log('Inspections from submission:', inspections);
-    const allBins: any[] = [];
+    
+    console.log('All inspections from submission:', inspections);
+    
+    const inspectedBins = inspections
+      .filter((inspection: any) => !inspection.isUninspected && !inspection.isMissing)
+      .map((inspection: any) => ({
+        binName: inspection.binUom ? `${inspection.binName} (${inspection.binSize}${inspection.binUom})` : 
+                 inspection.binSize ? `${inspection.binName} (${inspection.binSize})` : inspection.binName,
+        fullness: inspection.fullness > 100 ? 'Overflow' : `${inspection.fullness}%`,
+        contaminated: inspection.contaminated ? 'Yes' : 'No',
+        details: inspection.contaminationDetails || '-'
+      }));
 
-    // Generate all bins based on form_bins with quantities
-    formBins.forEach((formBin: any) => {
-      const binType = formBin.bin_types;
-      for (let i = 1; i <= formBin.quantity; i++) {
-        const binName = formBin.quantity > 1 ? `${binType.name} #${i}` : binType.name;
-        const binDisplayName = binType.bin_size ? `${binName} ${binType.bin_size}` : binName;
-        
-        // Find if this bin was inspected
-        const inspection = inspections.find((insp: any) => 
-          insp.binTypeId === binType.id && insp.binName === binName
-        );
+    const uninspectedBins = inspections
+      .filter((inspection: any) => inspection.isUninspected === true)
+      .map((inspection: any) => ({
+        binName: inspection.binUom ? `${inspection.binName} (${inspection.binSize}${inspection.binUom})` : 
+                 inspection.binSize ? `${inspection.binName} (${inspection.binSize})` : inspection.binName,
+        details: 'This bin was marked as uninspected during the submission'
+      }));
 
-        console.log(`Checking bin ${binName}, inspection found:`, inspection);
+    const missingBins = inspections
+      .filter((inspection: any) => inspection.isMissing === true)
+      .map((inspection: any) => ({
+        binName: inspection.binUom ? `${inspection.binName} (${inspection.binSize}${inspection.binUom})` : 
+                 inspection.binSize ? `${inspection.binName} (${inspection.binSize})` : inspection.binName,
+        comment: inspection.missingComment || 'No comment provided'
+      }));
 
-        if (inspection) {
-          // Bin was inspected
-          allBins.push({
-            binName: binDisplayName,
-            fullness: inspection.fullness > 100 ? 'Overflow' : `${inspection.fullness}%`,
-            contaminated: inspection.contaminated ? 'Yes' : 'No',
-            details: inspection.contaminationDetails || '-',
-            isInspected: true
-          });
-        } else {
-          // Bin was not inspected - set details to "uninspected"
-          allBins.push({
-            binName: binDisplayName,
-            fullness: '0%',
-            contaminated: 'No',
-            details: 'uninspected',
-            isInspected: false
-          });
-        }
-      }
-    });
-
-    console.log('All bins with inspection status:', allBins);
-    return allBins;
+    console.log('Categorized bins:', { inspectedBins, uninspectedBins, missingBins });
+    return { inspectedBins, uninspectedBins, missingBins };
   };
 
-  const allBins = getAllBinsWithInspectionStatus();
+  const { inspectedBins, uninspectedBins, missingBins } = getBinsByCategory();
 
   return (
     <Dialog open={showDetails} onOpenChange={setShowDetails}>
@@ -142,106 +126,19 @@ const SubmissionDetailsDialog: React.FC<SubmissionDetailsDialogProps> = ({
 
         {selectedSubmission && (
           <div className="space-y-6">
-            <div>
-              <h3 className="text-lg font-medium mb-2">Basic Information</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-mybin-gray">Form</p>
-                  <p className="font-medium">{selectedSubmission.form_title}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-mybin-gray">Form Code</p>
-                  <p className="font-medium">{selectedSubmission.unique_code}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-mybin-gray">Company</p>
-                  <p className="font-medium">{selectedSubmission.company_name}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-mybin-gray">Submitted By</p>
-                  <p className="font-medium">{selectedSubmission.submitted_by} - {selectedSubmission.data?.userType || 'N/A'}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-mybin-gray">Bin Area</p>
-                  <p className="font-medium">{formDetails?.area || 'N/A'}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-mybin-gray">Location</p>
-                  <p className="font-medium">{formDetails?.location || 'N/A'}</p>
-                </div>
-              </div>
-            </div>
+            <BasicInformationSection 
+              submission={selectedSubmission} 
+              formDetails={formDetails} 
+            />
 
-            {allBins.length > 0 ? (
-              <div>
-                <h3 className="text-lg font-medium mb-2">Bin Inspection Details</h3>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Bin Name</TableHead>
-                      <TableHead>Fullness</TableHead>
-                      <TableHead>Contaminated</TableHead>
-                      <TableHead>Details</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {allBins.map((bin: any, index: number) => (
-                      <TableRow key={index} className={!bin.isInspected ? 'bg-orange-50' : ''}>
-                        <TableCell>{bin.binName}</TableCell>
-                        <TableCell>{bin.fullness}</TableCell>
-                        <TableCell>{bin.contaminated}</TableCell>
-                        <TableCell className={!bin.isInspected ? 'text-orange-700 font-medium' : ''}>
-                          {bin.details}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            ) : (
+            <InspectedBinsTable inspectedBins={inspectedBins} />
+
+            <UninspectedBinsTable uninspectedBins={uninspectedBins} />
+
+            <MissingBinsTable missingBins={missingBins} />
+
+            {inspectedBins.length === 0 && uninspectedBins.length === 0 && missingBins.length === 0 && (
               <p className="text-sm text-mybin-gray">No bin inspection data available</p>
-            )}
-          
-            {selectedSubmission.data?.missingBinReports?.length > 0 && (
-              <div>
-                <h3 className="text-lg font-medium mb-2">Missing Bin Reports</h3>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Bin Name</TableHead>
-                      <TableHead>Comment</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {selectedSubmission.data.missingBinReports.map((report: any, index: number) => (
-                      <TableRow key={index}>
-                        <TableCell>{extractBinName(report.binName || report.binId)}</TableCell>
-                        <TableCell>{report.comment}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-            
-            {selectedSubmission.data?.missingBinIds?.length > 0 && !selectedSubmission.data?.missingBinReports?.length && (
-              <div>
-                <h3 className="text-lg font-medium mb-2">Missing Bins</h3>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Bin Name</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {selectedSubmission.data.missingBinIds.map((missingBin: any, index: number) => (
-                      <TableRow key={index}>
-                        <TableCell>{extractBinName(missingBin)}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
             )}
           </div>
         )}

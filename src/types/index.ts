@@ -23,22 +23,30 @@ export interface BinType {
   color: string;
   icon: string;
   bin_size: string; // Now required
+  bin_uom: string; // Unit of measurement - now required
 }
 
 export interface BinInspection {
   binTypeId: string;
   binName: string;
-  binSize: string; // Add bin size field
-  fullness: number;
-  contaminated: boolean;
+  binSize: string;
+  binUom: string;
+  fullness?: number; // Make optional for uninspected/missing bins
+  contaminated?: boolean; // Make optional for uninspected/missing bins
   contaminationDetails?: string;
+  isUninspected?: boolean; // Flag for uninspected bins
+  isMissing?: boolean; // Flag for missing bins
+  missingComment?: string; // Comment for missing bins
   timestamp: string;
 }
 
 export interface MissingBinReport {
   binId: string;
   binName?: string;
+  binSize?: string;
+  binUom?: string;
   comment: string;
+  timestamp?: string;
 }
 
 export interface MissingBin {

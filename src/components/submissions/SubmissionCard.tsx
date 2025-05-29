@@ -1,9 +1,9 @@
+
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Eye } from 'lucide-react';
 import { format } from 'date-fns';
-import { extractBinName } from '@/utils/binUtils';
 
 interface SubmissionCardProps {
   submission: any;
@@ -30,6 +30,27 @@ const SubmissionCard: React.FC<SubmissionCardProps> = ({ submission, onViewDetai
     }
   };
 
+  // Calculate bins count using the simplified flag approach
+  const getBinCounts = () => {
+    const inspections = submission.data?.inspections || [];
+    
+    const inspectedCount = inspections.filter((inspection: any) => 
+      !inspection.isUninspected && !inspection.isMissing
+    ).length;
+    
+    const uninspectedCount = inspections.filter((inspection: any) => 
+      inspection.isUninspected === true
+    ).length;
+    
+    const missingCount = inspections.filter((inspection: any) => 
+      inspection.isMissing === true
+    ).length;
+    
+    return { inspectedCount, uninspectedCount, missingCount };
+  };
+
+  const { inspectedCount, uninspectedCount, missingCount } = getBinCounts();
+
   return (
     <Card key={submission.id} className="overflow-hidden">
       <CardHeader className="pb-2 p-4">
@@ -55,28 +76,17 @@ const SubmissionCard: React.FC<SubmissionCardProps> = ({ submission, onViewDetai
           </div>
           <div>
             <p className="text-mybin-gray">Bins Inspected</p>
-            <p className="font-medium">{submission.data?.inspections?.length || 0}</p>
+            <p className="font-medium">{inspectedCount}</p>
+          </div>
+          <div>
+            <p className="text-mybin-gray">Bins Uninspected</p>
+            <p className="font-medium">{uninspectedCount}</p>
           </div>
           <div>
             <p className="text-mybin-gray">Bins Missing</p>
-            <p className="font-medium">{submission.data?.missingBinIds?.length || 0}</p>
+            <p className="font-medium">{missingCount}</p>
           </div>
         </div>
-        
-        {submission.data?.missingBinReports?.length > 0 && (
-          <div className="mt-3 border-t pt-3">
-            <p className="text-mybin-gray mb-1">Missing Bin Reasons:</p>
-            <ul className="text-sm">
-              {submission.data.missingBinReports.map((report: any, idx: number) => (
-                <li key={idx} className="mb-1">
-                  <span className="font-medium break-words">
-                   {extractBinName(report.binName || report.binId)}:
-                  </span> {report.comment}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
         
         <Button 
           variant="link" 

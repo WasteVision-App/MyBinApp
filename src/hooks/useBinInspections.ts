@@ -127,6 +127,15 @@ export const useBinInspections = (site: Site | null) => {
       }
     },
     handleReportMissingBin: (reportedMissingBinIds: string[], comment: string) => {
+      // Remove any existing inspections for bins being reported as missing
+      const updatedInspections = inspections.filter(inspection => {
+        const inspectionKey = `${inspection.binTypeId}-${inspection.binName}`;
+        return !reportedMissingBinIds.includes(inspectionKey);
+      });
+      
+      setInspections(updatedInspections);
+      sessionStorage.setItem('savedInspections', JSON.stringify(updatedInspections));
+      
       // Add the missing bin IDs to the list
       setMissingBinIds(prev => {
         const updatedMissingBinIds = [...prev, ...reportedMissingBinIds];
@@ -184,4 +193,3 @@ export const useBinInspections = (site: Site | null) => {
     allBinsAccountedFor
   };
 };
-
