@@ -9,6 +9,8 @@ import { BinType } from "@/types";
 interface BinRow {
   id?: string;
   bin_type_id: string;
+  bin_size: string;
+  bin_uom: string;
   quantity: number;
 }
 
@@ -23,6 +25,8 @@ interface BinTallyFormDetailsProps {
   binTypes: BinType[];
   handleInputChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   handleBinTypeChange: (value: string, index: number) => void;
+  handleBinSizeChange: (value: string, index: number) => void;
+  handleBinUOMChange: (value: string, index: number) => void;
   handleQuantityChange: (e: React.ChangeEvent<HTMLInputElement>, index: number) => void;
   addBinRow: () => void;
   removeBinRow: (index: number) => void;
@@ -33,6 +37,8 @@ const BinTallyFormDetails: React.FC<BinTallyFormDetailsProps> = ({
   binTypes,
   handleInputChange,
   handleBinTypeChange,
+  handleBinSizeChange,
+  handleBinUOMChange,
   handleQuantityChange,
   addBinRow,
   removeBinRow,
@@ -98,6 +104,8 @@ const BinTallyFormDetails: React.FC<BinTallyFormDetailsProps> = ({
       addBinRow={addBinRow}
       removeBinRow={removeBinRow}
       handleBinTypeChange={handleBinTypeChange}
+      handleBinSizeChange={handleBinSizeChange}
+      handleBinUOMChange={handleBinUOMChange}
       handleQuantityChange={handleQuantityChange}
     />
   </div>

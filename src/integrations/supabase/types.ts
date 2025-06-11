@@ -196,7 +196,9 @@ export type Database = {
       }
       form_bins: {
         Row: {
+          bin_size: string
           bin_type_id: string
+          bin_uom: string
           created_at: string
           form_id: string
           id: string
@@ -204,7 +206,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          bin_size: string
           bin_type_id: string
+          bin_uom: string
           created_at?: string
           form_id: string
           id?: string
@@ -212,7 +216,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          bin_size?: string
           bin_type_id?: string
+          bin_uom?: string
           created_at?: string
           form_id?: string
           id?: string
@@ -357,6 +363,31 @@ export type Database = {
         Args: { length: number }
         Returns: string
       }
+      get_current_user: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          user_id: string
+          role: string
+          company_id: string
+        }[]
+      }
+      get_current_user_company_id: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
+      get_current_user_info: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          user_id: string
+          email: string
+          role: string
+          company_id: string
+        }[]
+      }
+      get_user_company_id: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       has_role: {
         Args: {
           _user_id: string
@@ -367,6 +398,14 @@ export type Database = {
       hash_password: {
         Args: { password: string }
         Returns: string
+      }
+      is_super_admin: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      user_belongs_to_company: {
+        Args: { target_company_id: string }
+        Returns: boolean
       }
     }
     Enums: {

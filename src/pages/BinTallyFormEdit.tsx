@@ -17,6 +17,8 @@ interface BinTallyFormData {
   bins: {
     id?: string;
     bin_type_id: string;
+    bin_size: string;
+    bin_uom: string;
     quantity: number;
   }[];
 }
@@ -46,7 +48,7 @@ const BinTallyFormEdit: React.FC = () => {
     description: '',
     location: '',
     area: '',
-    bins: [{ bin_type_id: '', quantity: 1 }]
+    bins: [{ bin_type_id: '', bin_size: '', bin_uom: '', quantity: 1 }]
   });
   
   const [binTypes, setBinTypes] = useState<BinType[]>([]);
@@ -58,19 +60,19 @@ const BinTallyFormEdit: React.FC = () => {
       try {
         const { data, error } = await supabase
           .from('bin_types')
-          .select('id, name, color, icon, bin_size, bin_uom, created_at, updated_at')
+          .select('id, name, color, icon, created_at, updated_at')
           .order('name');
         
         if (error) throw error;
         
-        // Map the database results to our BinType interface
+        // Map the database results to our BinType interface (without bin_size and bin_uom for form creation)
         const mappedData: BinType[] = (data || []).map(item => ({
           id: item.id,
           name: item.name,
           color: item.color || '',
           icon: item.icon || 'trash-2',
-          bin_size: item.bin_size || 'Unknown',
-          bin_uom: item.bin_uom || '',
+          bin_size: '', // Site admin will specify this
+          bin_uom: '', // Site admin will specify this
         }));
         
         setBinTypes(mappedData);
@@ -113,9 +115,11 @@ const BinTallyFormEdit: React.FC = () => {
               ? formBins.map(bin => ({
                   id: bin.id,
                   bin_type_id: bin.bin_type_id,
+                  bin_size: bin.bin_size || '',
+                  bin_uom: bin.bin_uom || '',
                   quantity: bin.quantity
                 }))
-              : [{ bin_type_id: '', quantity: 1 }]
+              : [{ bin_type_id: '', bin_size: '', bin_uom: '', quantity: 1 }]
           });
         }
       } catch (error: any) {
@@ -166,6 +170,18 @@ const BinTallyFormEdit: React.FC = () => {
     setFormData(prev => ({ ...prev, bins: updatedBins }));
   };
 
+  const handleBinSizeChange = (value: string, index: number) => {
+    const updatedBins = [...formData.bins];
+    updatedBins[index].bin_size = value;
+    setFormData(prev => ({ ...prev, bins: updatedBins }));
+  };
+
+  const handleBinUOMChange = (value: string, index: number) => {
+    const updatedBins = [...formData.bins];
+    updatedBins[index].bin_uom = value;
+    setFormData(prev => ({ ...prev, bins: updatedBins }));
+  };
+
   const handleQuantityChange = (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
     let value = parseInt(e.target.value) || 1;
     value = Math.max(1, Math.min(99, value));
@@ -190,7 +206,7 @@ const BinTallyFormEdit: React.FC = () => {
     
     setFormData(prev => ({
       ...prev,
-      bins: [...prev.bins, { bin_type_id: '', quantity: 1 }]
+      bins: [...prev.bins, { bin_type_id: '', bin_size: '', bin_uom: '', quantity: 1 }]
     }));
   };
 
@@ -277,6 +293,22 @@ const BinTallyFormEdit: React.FC = () => {
       });
       return;
     }
+    if (formData.bins.some(bin => !bin.bin_size.trim())) {
+      toast({
+        title: "Form Incomplete",
+        description: "Please specify bin size for all bins.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (formData.bins.some(bin => !bin.bin_uom.trim())) {
+      toast({
+        title: "Form Incomplete",
+        description: "Please specify unit of measurement for all bins.",
+        variant: "destructive",
+      });
+      return;
+    }
     const invalidBin = formData.bins.find(bin => isNaN(bin.quantity) || bin.quantity < 1 || bin.quantity > 99);
     if (invalidBin) {
       toast({
@@ -310,6 +342,8 @@ const BinTallyFormEdit: React.FC = () => {
               .from('form_bins')
               .update({
                 bin_type_id: bin.bin_type_id,
+                bin_size: bin.bin_size,
+                bin_uom: bin.bin_uom,
                 quantity: bin.quantity,
                 updated_at: new Date().toISOString()
               })
@@ -321,6 +355,8 @@ const BinTallyFormEdit: React.FC = () => {
               .insert({
                 form_id: id,
                 bin_type_id: bin.bin_type_id,
+                bin_size: bin.bin_size,
+                bin_uom: bin.bin_uom,
                 quantity: bin.quantity
               });
             if (error) throw error;
@@ -371,6 +407,8 @@ const BinTallyFormEdit: React.FC = () => {
           const binsToInsert = formData.bins.map(bin => ({
             form_id: newFormId,
             bin_type_id: bin.bin_type_id,
+            bin_size: bin.bin_size,
+            bin_uom: bin.bin_uom,
             quantity: bin.quantity
           }));
           
@@ -429,6 +467,8 @@ const BinTallyFormEdit: React.FC = () => {
               binTypes={binTypes}
               handleInputChange={handleInputChange}
               handleBinTypeChange={handleBinTypeChange}
+              handleBinSizeChange={handleBinSizeChange}
+              handleBinUOMChange={handleBinUOMChange}
               handleQuantityChange={handleQuantityChange}
               addBinRow={addBinRow}
               removeBinRow={removeBinRow}

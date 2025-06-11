@@ -25,16 +25,12 @@ export const BinTypeForm: React.FC<BinTypeFormProps> = ({
   const [name, setName] = useState("");
   const [color, setColor] = useState("");
   const [icon, setIcon] = useState("");
-  const [binSize, setBinSize] = useState("");
-  const [binUOM, setBinUOM] = useState("");
 
   useEffect(() => {
     if (editingBinType) {
       setName(editingBinType.name);
       setColor(editingBinType.color || "");
       setIcon(editingBinType.icon || "");
-      setBinSize(editingBinType.bin_size || "");
-      setBinUOM(editingBinType.bin_uom || "");
     } else {
       resetForm();
     }
@@ -44,8 +40,6 @@ export const BinTypeForm: React.FC<BinTypeFormProps> = ({
     setName("");
     setColor("");
     setIcon("");
-    setBinSize("");
-    setBinUOM("");
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -55,21 +49,13 @@ export const BinTypeForm: React.FC<BinTypeFormProps> = ({
       toast({ title: "Missing name", description: "Name is required.", variant: "destructive" });
       return;
     }
-    if (!binSize.trim()) {
-      toast({ title: "Missing bin size", description: "Bin size is required.", variant: "destructive" });
-      return;
-    }
-    if (!binUOM.trim()) {
-      toast({ title: "Missing UOM", description: "Unit of measurement is required.", variant: "destructive" });
-      return;
-    }
 
     const formData: BinTypeFormData = {
       name,
       color,
       icon,
-      binSize,
-      binUOM,
+      binSize: "", // No longer managed by super admin
+      binUOM: "", // No longer managed by super admin
     };
 
     try {
@@ -78,7 +64,7 @@ export const BinTypeForm: React.FC<BinTypeFormProps> = ({
       if (isDuplicate) {
         toast({ 
           title: "Duplicate bin type", 
-          description: "A bin type with this name, size and UOM already exists.", 
+          description: "A bin type with this name already exists.", 
           variant: "destructive" 
         });
         return;
@@ -107,28 +93,6 @@ export const BinTypeForm: React.FC<BinTypeFormProps> = ({
           <div>
             <Label htmlFor="name">Name <span className="text-red-500">*</span></Label>
             <Input id="name" value={name} onChange={e => setName(e.target.value)} required />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="binSize">Bin Size <span className="text-red-500">*</span></Label>
-              <Input 
-                id="binSize" 
-                value={binSize} 
-                onChange={e => setBinSize(e.target.value)} 
-                placeholder="E.g. 80, 140, 240" 
-                required
-              />
-            </div>
-            <div>
-              <Label htmlFor="binUOM">UOM <span className="text-red-500">*</span></Label>
-              <Input 
-                id="binUOM" 
-                value={binUOM} 
-                onChange={e => setBinUOM(e.target.value)} 
-                placeholder="E.g. L, kg, m³" 
-                required
-              />
-            </div>
           </div>
           <div>
             <Label htmlFor="color">Color (hex or name, optional)</Label>

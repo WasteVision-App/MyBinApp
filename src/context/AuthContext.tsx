@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, setCurrentUserEmail } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { toast } from '@/components/ui/use-toast';
 import { hashPassword } from '@/utils/hash';
@@ -30,13 +30,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const navigate = useNavigate();
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('mybinapp_user');
-    if (storedUser) {
-      const parsedUser = JSON.parse(storedUser);
-      setUser(parsedUser);
-      setIsSuperAdmin(parsedUser.role === 'super_admin');
-    }
-    setIsLoading(false);
+    const initializeAuth = async () => {
+      const storedUser = localStorage.getItem('mybinapp_user');
+      if (storedUser) {
+        const parsedUser = JSON.parse(storedUser);
+        setUser(parsedUser);
+        setIsSuperAdmin(parsedUser.role === 'super_admin');
+        
+        // Set the user email in database session for RLS policies
+        await setCurrentUserEmail(parsedUser.email);
+      }
+      setIsLoading(false);
+    };
+
+    initializeAuth();
   }, []);
 
   const signIn = async (email: string, password: string) => {
@@ -89,6 +96,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsSuperAdmin(normalizedRole === 'super_admin');
       localStorage.setItem('mybinapp_user', JSON.stringify(userData));
 
+      // Set the user email in database session for RLS policies
+      await setCurrentUserEmail(userData.email);
+
       navigate('/admin');
     } catch (error: any) {
       toast({
@@ -106,6 +116,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(null);
       setIsSuperAdmin(false);
       localStorage.removeItem('mybinapp_user');
+      
+      // Clear the user email from database session
+      await setCurrentUserEmail(null);
+      
       navigate('/auth');
     } catch (error: any) {
       toast({

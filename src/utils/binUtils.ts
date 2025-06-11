@@ -55,7 +55,7 @@ export const processMissingBins = async (missingIds: string[]) => {
     const match = id.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-(.+)$/i);
     if (match && match[1]) {
       const nameWithSize = match[1];
-      // We'll let the database lookup add the size
+      // Return the name as-is since it already contains the proper formatting
       return nameWithSize;
     }
     
@@ -111,44 +111,8 @@ export const processMissingBins = async (missingIds: string[]) => {
     }
   }
   
-  // Additional database lookup for ALL bin IDs to get sizes for bins that don't already have size info
-  const allBinIds = processedBins
-    .filter(bin => bin.id.length === 36) // Only fetch valid UUIDs
-    .map(bin => bin.id);
-    
-  if (allBinIds.length > 0) {
-    try {
-      const { data } = await supabase
-        .from('bin_types')
-        .select('id, name, bin_size')
-        .in('id', allBinIds);
-        
-      if (data) {
-        // Create a map of bin ID to bin size
-        const binSizeMap = new Map();
-        data.forEach(bin => {
-          if (bin.bin_size) {
-            binSizeMap.set(bin.id, bin.bin_size);
-          }
-        });
-        
-        // Update processed bins with size information only if they don't already have it
-        processedBins.forEach(bin => {
-          const binSize = binSizeMap.get(bin.id);
-          if (binSize && bin.name) {
-            // Check if the name already contains size information (like "140L" or "140")
-            const hasSize = bin.name.match(/\b\d+[A-Za-z]*\b/);
-            if (!hasSize) {
-              // Only add size if it's not already present
-              bin.name = `${bin.name} ${binSize}`;
-            }
-          }
-        });
-      }
-    } catch (error) {
-      console.error("Error fetching bin sizes:", error);
-    }
-  }
+  // For bins that already have embedded names, don't add size again
+  // since the embedded name should already be properly formatted from the form
   
   return processedBins;
 };

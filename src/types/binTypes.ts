@@ -12,6 +12,6 @@ export interface BinTypeFormData {
   name: string;
   color: string;
   icon: string;
-  binSize: string;
-  binUOM: string;
+  binSize: string; // Optional - no longer required for bin type creation
+  binUOM: string; // Optional - no longer required for bin type creation
 }

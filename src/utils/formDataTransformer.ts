@@ -5,6 +5,8 @@ import { Site } from '@/types';
 interface FormBin {
   id: string;
   quantity: number;
+  bin_size: string;
+  bin_uom: string;
   bin_types: {
     id: string;
     name: string;
@@ -52,8 +54,10 @@ export const transformFormDataToSite = (formData: FormResult): Site => {
           name: `${formBin.bin_types.name}${binSuffix}`,
           color: formBin.bin_types.color,
           icon: formBin.bin_types.icon || 'trash-2',
-          bin_size: formBin.bin_types.bin_size || 'Unknown',
-          bin_uom: formBin.bin_types.bin_uom || ''
+          // Use bin_size and bin_uom from form_bins table (what site admin specified) 
+          // instead of bin_types table (the default values)
+          bin_size: formBin.bin_size || formBin.bin_types.bin_size || 'Unknown',
+          bin_uom: formBin.bin_uom || formBin.bin_types.bin_uom || ''
         });
       }
     });

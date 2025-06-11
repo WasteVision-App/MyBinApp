@@ -1,4 +1,3 @@
-
 import { useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from '@/components/ui/use-toast';
@@ -95,9 +94,7 @@ export const useFetchFormData = (currentForm: FormData | null) => {
 
       console.log('Fetching form data with ID:', formId);
       
-      // Get form data using the form_id - Now including both bin_size and bin_uom in the query
-      // Force cache refresh with timestamp parameter to prevent caching
-      const timestamp = new Date().getTime();
+      // Get form data using the form_id - Now including bin_size and bin_uom from form_bins table
       const { data, error } = await supabase
         .from('bin_tally_forms')
         .select(`
@@ -116,6 +113,8 @@ export const useFetchFormData = (currentForm: FormData | null) => {
           form_bins (
             id,
             quantity,
+            bin_size,
+            bin_uom,
             bin_types (
               id,
               name,

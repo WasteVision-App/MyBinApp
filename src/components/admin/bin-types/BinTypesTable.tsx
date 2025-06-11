@@ -19,13 +19,6 @@ export const BinTypesTable: React.FC<BinTypesTableProps> = ({
   onEdit,
   onDelete,
 }) => {
-  const getDisplaySize = (binType: BinType) => {
-    if (binType.bin_size && binType.bin_uom) {
-      return `${binType.bin_size}${binType.bin_uom}`;
-    }
-    return binType.bin_size || "-";
-  };
-
   const handleDelete = async (id: string) => {
     if (!window.confirm("Delete this bin type?")) return;
     onDelete(id);
@@ -44,7 +37,6 @@ export const BinTypesTable: React.FC<BinTypesTableProps> = ({
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
-                <TableHead>Size</TableHead>
                 <TableHead>Color</TableHead>
                 <TableHead>Icon</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
@@ -54,7 +46,6 @@ export const BinTypesTable: React.FC<BinTypesTableProps> = ({
               {binTypes.map((bin) => (
                 <TableRow key={bin.id}>
                   <TableCell>{bin.name}</TableCell>
-                  <TableCell>{getDisplaySize(bin)}</TableCell>
                   <TableCell>{bin.color || "-"}</TableCell>
                   <TableCell>{bin.icon || "-"}</TableCell>
                   <TableCell className="text-right">

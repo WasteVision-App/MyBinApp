@@ -10,6 +10,8 @@ import { BinType } from "@/types";
 interface BinRow {
   id?: string;
   bin_type_id: string;
+  bin_size: string;
+  bin_uom: string;
   quantity: number;
 }
 
@@ -19,6 +21,8 @@ interface BinFormRowsProps {
   addBinRow: () => void;
   removeBinRow: (index: number) => void;
   handleBinTypeChange: (value: string, index: number) => void;
+  handleBinSizeChange: (value: string, index: number) => void;
+  handleBinUOMChange: (value: string, index: number) => void;
   handleQuantityChange: (e: React.ChangeEvent<HTMLInputElement>, index: number) => void;
 }
 
@@ -28,6 +32,8 @@ const BinFormRows: React.FC<BinFormRowsProps> = ({
   addBinRow,
   removeBinRow,
   handleBinTypeChange,
+  handleBinSizeChange,
+  handleBinUOMChange,
   handleQuantityChange,
 }) => {
   // Get already selected bin type IDs
@@ -35,6 +41,15 @@ const BinFormRows: React.FC<BinFormRowsProps> = ({
   
   // Check if all bin types have been selected
   const allBinTypesSelected = selectedBinTypeIds.length === binTypes.length;
+
+  const handleBinSizeInputChange = (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
+    const value = e.target.value;
+    // Allow empty string, decimal numbers (including leading decimal point)
+    const decimalRegex = /^(\d*\.?\d*)$/;
+    if (value === '' || decimalRegex.test(value)) {
+      handleBinSizeChange(value, index);
+    }
+  };
 
   return (
     <div className="space-y-3">
@@ -55,7 +70,7 @@ const BinFormRows: React.FC<BinFormRowsProps> = ({
       {bins.map((bin, index) => (
         <div key={index} className="flex items-end gap-3">
           <div className="flex-1">
-            <Label htmlFor={`bin-type-${index}`}>Bin Type</Label>
+            <Label htmlFor={`bin-type-${index}`}>Bin Type <span className="text-red-500">*</span></Label>
             <Select
               value={bin.bin_type_id}
               onValueChange={(value) => handleBinTypeChange(value, index)}
@@ -67,9 +82,6 @@ const BinFormRows: React.FC<BinFormRowsProps> = ({
                 <SelectGroup>
                   {binTypes.map((type) => {
                     const isDisabled = selectedBinTypeIds.includes(type.id) && bin.bin_type_id !== type.id;
-                    const sizeDisplay = type.bin_size && type.bin_uom 
-                      ? `${type.bin_size}${type.bin_uom}` 
-                      : type.bin_size || 'Size not specified';
                     
                     return (
                       <SelectItem 
@@ -78,11 +90,41 @@ const BinFormRows: React.FC<BinFormRowsProps> = ({
                         disabled={isDisabled}
                         className={isDisabled ? "opacity-50 cursor-not-allowed" : ""}
                       >
-                        {type.name} - {sizeDisplay}
+                        {type.name}
                         {isDisabled && " (Already selected)"}
                       </SelectItem>
                     );
                   })}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="w-24">
+            <Label htmlFor={`bin-size-${index}`}>Size <span className="text-red-500">*</span></Label>
+            <Input
+              id={`bin-size-${index}`}
+              type="text"
+              value={bin.bin_size}
+              onChange={(e) => handleBinSizeInputChange(e, index)}
+              placeholder="e.g. 240"
+              required
+            />
+          </div>
+
+          <div className="w-20">
+            <Label htmlFor={`bin-uom-${index}`}>UOM <span className="text-red-500">*</span></Label>
+            <Select
+              value={bin.bin_uom}
+              onValueChange={(value) => handleBinUOMChange(value, index)}
+            >
+              <SelectTrigger id={`bin-uom-${index}`}>
+                <SelectValue placeholder="UOM" />
+              </SelectTrigger>
+              <SelectContent className="bg-white z-50">
+                <SelectGroup>
+                  <SelectItem value="L">L</SelectItem>
+                  <SelectItem value="m3">m3</SelectItem>
                 </SelectGroup>
               </SelectContent>
             </Select>
