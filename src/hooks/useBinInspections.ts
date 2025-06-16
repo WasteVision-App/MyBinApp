@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { BinInspection, BinType, Site, MissingBinReport } from '@/types';
 import { toast } from '@/components/ui/use-toast';
+import { createBinKey } from '@/utils/binUtils';
 
 export const useBinInspections = (site: Site | null) => {
   const [inspections, setInspections] = useState<BinInspection[]>([]);
@@ -52,9 +53,9 @@ export const useBinInspections = (site: Site | null) => {
     if (!site) return false;
     
     return site.bins.every(bin => {
-      const binKey = `${bin.id}-${bin.name}`;
+      const binKey = createBinKey(bin);
       return (
-        inspections.some(i => `${i.binTypeId}-${i.binName}` === binKey) ||
+        inspections.some(i => createBinKey(i) === binKey) ||
         missingBinIds.includes(binKey)
       );
     });
@@ -74,21 +75,18 @@ export const useBinInspections = (site: Site | null) => {
     setSelectedBin,
     setShowSubmissionConfirmation,
     handleSelectBin,
-    findMissingBinReport, // Add this method to expose finding missing bin reports
+    findMissingBinReport,
     handleInspectionSubmit: (inspection: BinInspection) => {
-      const binKey = `${inspection.binTypeId}-${inspection.binName}`;
+      const binKey = createBinKey(inspection);
       
       let updatedInspections;
-      if (inspections.findIndex(i => 
-        i.binTypeId === inspection.binTypeId && i.binName === inspection.binName
-      ) >= 0) {
+      const existingIndex = inspections.findIndex(i => createBinKey(i) === binKey);
+      
+      if (existingIndex >= 0) {
         updatedInspections = [...inspections];
-        updatedInspections[inspections.findIndex(i => 
-          i.binTypeId === inspection.binTypeId && i.binName === inspection.binName
-        )] = inspection;
+        updatedInspections[existingIndex] = inspection;
       } else {
-        updatedInspections = [...inspections];
-        updatedInspections.push(inspection);
+        updatedInspections = [...inspections, inspection];
       }
       
       setInspections(updatedInspections);
@@ -115,9 +113,9 @@ export const useBinInspections = (site: Site | null) => {
       });
       
       const updatedAllBinsAccountedFor = site?.bins.every(bin => {
-        const currentBinKey = `${bin.id}-${bin.name}`;
+        const currentBinKey = createBinKey(bin);
         return (
-          updatedInspections.some(i => `${i.binTypeId}-${i.binName}` === currentBinKey) ||
+          updatedInspections.some(i => createBinKey(i) === currentBinKey) ||
           missingBinIds.includes(currentBinKey)
         );
       });
@@ -127,10 +125,18 @@ export const useBinInspections = (site: Site | null) => {
       }
     },
     handleReportMissingBin: (reportedMissingBinIds: string[], comment: string) => {
+      console.log('handleReportMissingBin called with:', reportedMissingBinIds);
+      
+      // The reportedMissingBinIds should already be the proper bin keys from BinInspectionForm
+      // No need to convert them anymore, they should already include size and UOM
+      const properBinKeys = reportedMissingBinIds;
+      
+      console.log('Using proper bin keys:', properBinKeys);
+      
       // Remove any existing inspections for bins being reported as missing
       const updatedInspections = inspections.filter(inspection => {
-        const inspectionKey = `${inspection.binTypeId}-${inspection.binName}`;
-        return !reportedMissingBinIds.includes(inspectionKey);
+        const inspectionKey = createBinKey(inspection);
+        return !properBinKeys.includes(inspectionKey);
       });
       
       setInspections(updatedInspections);
@@ -138,35 +144,27 @@ export const useBinInspections = (site: Site | null) => {
       
       // Add the missing bin IDs to the list
       setMissingBinIds(prev => {
-        const updatedMissingBinIds = [...prev, ...reportedMissingBinIds];
-        sessionStorage.setItem('savedMissingBinIds', JSON.stringify(updatedMissingBinIds));
-        return updatedMissingBinIds;
+        const newMissingBinIds = [...prev, ...properBinKeys];
+        sessionStorage.setItem('savedMissingBinIds', JSON.stringify(newMissingBinIds));
+        return newMissingBinIds;
       });
       
-      // Save the missing bin reports with comments
+      // Save the missing bin reports with comments using the proper bin keys
       setMissingBinReports(prev => {
-        const newReports = reportedMissingBinIds.map(id => {
-          // Extract bin name and size from the composite ID if it's in the format "id-name-size"
-          let binName = 'Unknown';
-          if (id.includes('-')) {
-            const parts = id.split('-');
-            // Check if there are at least 2 parts (id and name)
-            if (parts.length >= 2) {
-              const name = parts[1];
-              // If there's also a size part
-              if (parts.length >= 3) {
-                const size = parts.slice(2).join('-');
-                binName = `${name} (${size})`;
-              } else {
-                binName = name;
-              }
-            }
-          }
+        const newReports = properBinKeys.map(binKey => {
+          // Find the bin details from the binKey
+          const matchingBin = site?.bins.find(bin => {
+            const siteBinKey = createBinKey(bin);
+            return siteBinKey === binKey;
+          });
+          
+          console.log('Creating missing bin report for key:', binKey, 'matched bin:', matchingBin);
           
           return {
-            binId: id,
+            binId: binKey,
             comment: comment,
-            binName: binName,
+            binName: matchingBin?.name || 'Unknown',
+            binSize: matchingBin?.bin_size || 'Unknown',
             timestamp: new Date().toISOString()
           };
         });
@@ -180,7 +178,7 @@ export const useBinInspections = (site: Site | null) => {
       
       toast({
         title: "Missing Bin Reported",
-        description: `${reportedMissingBinIds.length} bin(s) reported as missing.`,
+        description: `${properBinKeys.length} bin(s) reported as missing.`,
       });
       
       setTimeout(() => {

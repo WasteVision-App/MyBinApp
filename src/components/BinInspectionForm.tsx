@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -10,6 +11,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { supabase } from '@/integrations/supabase/client';
 import { Textarea } from '@/components/ui/textarea';
+import { createBinKey } from '@/utils/binUtils';
 import * as LucideIcons from 'lucide-react';
 
 interface BinInspectionFormProps {
@@ -160,8 +162,9 @@ const BinInspectionForm: React.FC<BinInspectionFormProps> = ({
         return;
       }
       
-      // Use the full bin ID and name when reporting a missing bin
-      const binKey = `${bin.id}-${bin.name}`;
+      // Use the createBinKey function to ensure consistent bin identification
+      const binKey = createBinKey(bin);
+      console.log('Reporting missing bin with key:', binKey, 'for bin:', bin);
       onReportMissing([binKey], missingComment);
       return;
     }

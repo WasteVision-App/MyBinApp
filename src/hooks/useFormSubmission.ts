@@ -6,6 +6,7 @@ import { UserInfo, BinInspection, MissingBinReport, Site } from '@/types';
 import { useBinData } from './useBinData';
 import { useSessionStorage } from './useSessionStorage';
 import { useSubmitForm } from './useSubmitForm';
+import { createBinKey } from '@/utils/binUtils';
 
 export const useFormSubmission = (
   site: Site | null,
@@ -37,25 +38,15 @@ export const useFormSubmission = (
     
     console.log("Raw missing bin reports from session:", missingBinReportsRaw);
     
-    // Create a set of inspected bin keys for quick lookup
-    const inspectedBinKeys = new Set(inspections.map(i => `${i.binTypeId}-${i.binName}`));
+    // Create a map to track the final state of each bin (using bin keys for uniqueness)
+    const finalBinStates = new Map<string, BinInspection>();
     
-    // Create a set of missing bin keys
-    const missingBinKeys = new Set(missingBinIds);
-    
-    // Find uninspected bins (not inspected and not missing)
-    const uninspectedBins = site.bins.filter(bin => {
-      const binKey = `${bin.id}-${bin.name}`;
-      return !inspectedBinKeys.has(binKey) && !missingBinKeys.has(binKey);
-    });
-    
-    // Create all inspections with proper flags
-    const allInspections: BinInspection[] = [];
-    
-    // Add regular inspections with bin UOM
+    // First, add all regular inspections
     inspections.forEach(inspection => {
       const bin = site.bins.find(b => b.id === inspection.binTypeId && b.name === inspection.binName);
-      allInspections.push({
+      const binKey = createBinKey(bin || inspection);
+      
+      finalBinStates.set(binKey, {
         ...inspection,
         binUom: bin?.bin_uom || '',
         isUninspected: false,
@@ -63,9 +54,49 @@ export const useFormSubmission = (
       });
     });
     
+    // Then, process missing bins (these will override any existing inspections)
+    missingBinReportsRaw.forEach(report => {
+      console.log("Processing missing bin report:", report);
+      
+      // Find the corresponding bin in site.bins by checking if binId matches the bin key
+      const matchingBin = site.bins.find(bin => {
+        const expectedBinKey = createBinKey(bin);
+        return report.binId === expectedBinKey;
+      });
+      
+      if (matchingBin) {
+        const binKey = createBinKey(matchingBin);
+        console.log("Found matching bin for missing report:", matchingBin);
+        
+        // Override any existing inspection for this bin
+        finalBinStates.set(binKey, {
+          binTypeId: matchingBin.id,
+          binName: matchingBin.name,
+          binSize: matchingBin.bin_size || 'Unknown',
+          binUom: matchingBin.bin_uom || '',
+          fullness: undefined,
+          contaminated: undefined,
+          isUninspected: false,
+          isMissing: true,
+          missingComment: report.comment,
+          timestamp: timestamp
+        });
+      } else {
+        console.error("Could not find matching bin for missing report:", report.binId);
+      }
+    });
+    
+    // Find uninspected bins (not in finalBinStates)
+    const accountedBinKeys = new Set(finalBinStates.keys());
+    const uninspectedBins = site.bins.filter(bin => {
+      const binKey = createBinKey(bin);
+      return !accountedBinKeys.has(binKey);
+    });
+    
     // Add uninspected bins
     uninspectedBins.forEach(bin => {
-      allInspections.push({
+      const binKey = createBinKey(bin);
+      finalBinStates.set(binKey, {
         binTypeId: bin.id,
         binName: bin.name,
         binSize: bin.bin_size || 'Unknown',
@@ -78,43 +109,10 @@ export const useFormSubmission = (
       });
     });
     
-    // Add missing bins - fixed parsing logic for UUID-based binIds
-    missingBinReportsRaw.forEach(report => {
-      console.log("Processing missing bin report:", report);
-      
-      // The binId format is "uuid-binName" where uuid can contain dashes
-      // Find the corresponding bin in site.bins by checking if binId starts with bin.id
-      const matchingBin = site.bins.find(bin => {
-        const expectedBinKey = `${bin.id}-${bin.name}`;
-        return report.binId === expectedBinKey;
-      });
-      
-      if (matchingBin) {
-        console.log("Found matching bin for missing report:", matchingBin);
-        allInspections.push({
-          binTypeId: matchingBin.id,
-          binName: matchingBin.name,
-          binSize: matchingBin.bin_size || 'Unknown',
-          binUom: matchingBin.bin_uom || '',
-          fullness: undefined,
-          contaminated: undefined,
-          isUninspected: false,
-          isMissing: true,
-          missingComment: report.comment,
-          timestamp: timestamp
-        });
-        console.log("Added missing bin inspection:", {
-          binTypeId: matchingBin.id,
-          binName: matchingBin.name,
-          isMissing: true,
-          missingComment: report.comment
-        });
-      } else {
-        console.error("Could not find matching bin for missing report:", report.binId);
-      }
-    });
+    // Convert map to array for submission
+    const allInspections = Array.from(finalBinStates.values());
     
-    console.info("Simplified submission:", {
+    console.info("Final deduplicated submission:", {
       siteId: site.id,
       userId: userInfo.name,
       userType: userInfo.userType,
@@ -125,7 +123,7 @@ export const useFormSubmission = (
       missingBinsCount: missingBinReportsRaw.length
     });
     
-    // Submit the form data with simplified structure
+    // Submit the form data with deduplicated structure
     const { success } = await submitFormData(
       site.id,
       userInfo,

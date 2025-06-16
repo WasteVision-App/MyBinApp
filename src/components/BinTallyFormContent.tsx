@@ -7,6 +7,7 @@ import SubmissionSuccess from '@/components/SubmissionSuccess';
 import SubmissionConfirmation from '@/components/SubmissionConfirmation';
 import { Site, UserInfo, BinType, BinInspection, MissingBinReport } from '@/types';
 import { Button } from '@/components/ui/button';
+import { createBinKey } from '@/utils/binUtils';
 
 interface BinTallyFormContentProps {
   site: Site;
@@ -78,17 +79,15 @@ const BinTallyFormContent: React.FC<BinTallyFormContentProps> = ({
   }
   
   if (selectedBin) {
-    // Find if the bin is already inspected
+    // Find if the bin is already inspected using the proper key
+    const selectedBinKey = createBinKey(selectedBin);
     const existingInspection = inspections.find(
-      inspection => 
-        inspection.binTypeId === selectedBin.id && 
-        inspection.binName === selectedBin.name
+      inspection => createBinKey(inspection) === selectedBinKey
     );
     
     // Find if the bin is reported as missing
-    const binKey = `${selectedBin.id}-${selectedBin.name}`;
-    const isMissing = missingBinIds.includes(binKey);
-    const missingBinReport = isMissing ? findMissingBinReport(binKey) : undefined;
+    const isMissing = missingBinIds.includes(selectedBinKey);
+    const missingBinReport = isMissing ? findMissingBinReport(selectedBinKey) : undefined;
     
     return (
       <BinInspectionForm 
@@ -112,7 +111,7 @@ const BinTallyFormContent: React.FC<BinTallyFormContentProps> = ({
       <BinSelection 
         bins={site?.bins || []}
         onSelectBin={onSelectBin}
-        completedBinIds={inspections.map(i => `${i.binTypeId}-${i.binName}`)}
+        completedBinIds={inspections.map(i => createBinKey(i))}
         missingBinIds={missingBinIds}
       />
       

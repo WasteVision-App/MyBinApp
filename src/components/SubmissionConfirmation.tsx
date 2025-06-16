@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { BinInspection, BinType, MissingBinReport } from '@/types';
-import { processMissingBins } from '@/utils/binUtils';
+import { createBinKey } from '@/utils/binUtils';
 
 interface SubmissionConfirmationProps {
   inspections: BinInspection[];
@@ -21,21 +21,6 @@ const SubmissionConfirmation: React.FC<SubmissionConfirmationProps> = ({
   onConfirm,
   onEdit
 }) => {
-  const [missingBins, setMissingBins] = useState<{ id: string; name: string }[]>([]);
-  
-  useEffect(() => {
-    const loadMissingBins = async () => {
-      console.log("Processing missing bins:", missingBinIds);
-      const processedMissingBins = await processMissingBins(missingBinIds);
-      console.log("Processed missing bins:", processedMissingBins);
-      setMissingBins(processedMissingBins);
-    };
-    
-    if (missingBinIds.length > 0) {
-      loadMissingBins();
-    }
-  }, [missingBinIds]);
-  
   const getFullnessLabel = (fullness: number) => {
     switch (fullness) {
       case 0: return "Empty (0%)";
@@ -48,36 +33,25 @@ const SubmissionConfirmation: React.FC<SubmissionConfirmationProps> = ({
     }
   };
 
-  const getBinNameById = (binId: string) => {
-    const bin = bins.find(bin => bin.id === binId);
-    return bin ? bin.name : 'Unknown Bin';
-  };
-
   // Format bin name with size and UOM
-  const formatBinDisplayName = (binId: string, binName?: string) => {
-    const bin = bins.find(bin => bin.id === binId);
-    
-    // Use the provided binName if available, otherwise fall back to bin lookup
-    const name = binName || (bin ? bin.name : 'Unknown Bin');
-    
-    if (bin && bin.bin_size && bin.bin_uom) {
-      return `${name} (${bin.bin_size}${bin.bin_uom})`;
-    } else if (bin && bin.bin_size) {
-      return `${name} (${bin.bin_size})`;
+  const formatBinDisplayName = (bin: BinType) => {
+    if (bin.bin_size && bin.bin_uom) {
+      return `${bin.name} (${bin.bin_size}${bin.bin_uom})`;
+    } else if (bin.bin_size) {
+      return `${bin.name} (${bin.bin_size})`;
     }
-    return name;
+    return bin.name;
   };
 
-  // Calculate uninspected bins
+  // Calculate uninspected bins using proper bin key matching
   const getUninspectedBins = () => {
-    const inspectedBinKeys = new Set(inspections.map(i => `${i.binTypeId}-${i.binName}`));
+    const inspectedBinKeys = new Set(inspections.map(i => createBinKey(i)));
+    const missingBinKeysSet = new Set(missingBinIds);
     
     return bins.filter(bin => {
-      const binKey = `${bin.id}-${bin.name}`;
-      // Check if this bin is inspected
+      const binKey = createBinKey(bin);
       const isInspected = inspectedBinKeys.has(binKey);
-      // Check if this bin is missing by looking for a match in missingBinIds
-      const isMissing = missingBinIds.includes(binKey);
+      const isMissing = missingBinKeysSet.has(binKey);
       
       console.log(`Checking bin ${binKey}: inspected=${isInspected}, missing=${isMissing}`);
       
@@ -85,7 +59,43 @@ const SubmissionConfirmation: React.FC<SubmissionConfirmationProps> = ({
     });
   };
 
+  // Get missing bins with proper matching to avoid duplicates
+  const getMissingBinsDisplay = () => {
+    const missingBinsDisplay: { key: string; bin: BinType; report?: MissingBinReport }[] = [];
+    
+    // Create a map of missing bin IDs to their reports
+    const reportMap = new Map<string, MissingBinReport>();
+    missingBinReports.forEach(report => {
+      reportMap.set(report.binId, report);
+    });
+    
+    // For each missing bin ID, find the corresponding bin and create display entry
+    missingBinIds.forEach(missingBinId => {
+      const matchingBin = bins.find(bin => {
+        const binKey = createBinKey(bin);
+        return binKey === missingBinId;
+      });
+      
+      if (matchingBin) {
+        const binKey = createBinKey(matchingBin);
+        const report = reportMap.get(missingBinId);
+        
+        // Only add if we haven't already added this exact bin
+        if (!missingBinsDisplay.some(item => item.key === binKey)) {
+          missingBinsDisplay.push({
+            key: binKey,
+            bin: matchingBin,
+            report: report
+          });
+        }
+      }
+    });
+    
+    return missingBinsDisplay;
+  };
+
   const uninspectedBins = getUninspectedBins();
+  const missingBinsDisplay = getMissingBinsDisplay();
 
   // Format date in Australian format (DD/MM/YYYY h:mm AM/PM)
   const formatDateAU = () => {
@@ -124,11 +134,17 @@ const SubmissionConfirmation: React.FC<SubmissionConfirmationProps> = ({
           </thead>
           <tbody>
             {inspections.map((inspection, index) => {
-              // Use the inspection's binName to get the correct display name
-              const binDisplayName = formatBinDisplayName(inspection.binTypeId, inspection.binName);
+              // Find the matching bin to get proper display formatting
+              const matchingBin = bins.find(bin => {
+                const binKey = createBinKey(bin);
+                const inspectionKey = createBinKey(inspection);
+                return binKey === inspectionKey;
+              });
+              
+              const binDisplayName = matchingBin ? formatBinDisplayName(matchingBin) : inspection.binName;
               
               return (
-                <tr key={`${inspection.binTypeId}-${inspection.binName}-${index}`} className="border-b border-gray-200">
+                <tr key={`inspection-${createBinKey(inspection)}-${index}`} className="border-b border-gray-200">
                   <td className="p-3">{binDisplayName}</td>
                   <td className="p-3">{getFullnessLabel(inspection.fullness)}</td>
                   <td className="p-3">
@@ -166,10 +182,10 @@ const SubmissionConfirmation: React.FC<SubmissionConfirmationProps> = ({
               </thead>
               <tbody>
                 {uninspectedBins.map((bin, index) => {
-                  const binDisplayName = formatBinDisplayName(bin.id, bin.name);
+                  const binDisplayName = formatBinDisplayName(bin);
                   
                   return (
-                    <tr key={`uninspected-${bin.id}-${index}`} className="border-b border-orange-200 last:border-b-0">
+                    <tr key={`uninspected-${createBinKey(bin)}-${index}`} className="border-b border-orange-200 last:border-b-0">
                       <td className="p-3">{binDisplayName}</td>
                       <td className="p-3 text-orange-700">Reported as Empty (0%)</td>
                     </tr>
@@ -182,18 +198,16 @@ const SubmissionConfirmation: React.FC<SubmissionConfirmationProps> = ({
       )}
       
       {/* Missing Bins Section */}
-      {missingBins.length > 0 && (
+      {missingBinsDisplay.length > 0 && (
         <div className="mb-6">
           <h3 className="text-mybin-secondary font-medium mb-2">Missing Bins Reported</h3>
           <div className="bg-mybin-light bg-opacity-30 p-3 rounded-md">
             <ul className="list-disc pl-5 text-sm">
-              {missingBins.map(bin => {
-                const binId = `${bin.id}-${bin.name}`;
-                const report = missingBinReports.find(r => r.binId === binId);
-                const displayName = formatBinDisplayName(bin.id, bin.name);
+              {missingBinsDisplay.map(({ key, bin, report }) => {
+                const displayName = formatBinDisplayName(bin);
                 
                 return (
-                  <li key={`missing-${bin.id}`} className="mb-2">
+                  <li key={`missing-${key}`} className="mb-2">
                     <div className="font-medium">{displayName}</div>
                     {report?.comment && (
                       <div className="text-xs text-mybin-gray mt-1">

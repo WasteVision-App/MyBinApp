@@ -3,6 +3,7 @@ import React from 'react';
 import { BinType } from '@/types';
 import * as LucideIcons from 'lucide-react';
 import { PackageX, Edit } from 'lucide-react';
+import { createBinKey } from '@/utils/binUtils';
 
 interface BinSelectionProps {
   bins: BinType[];
@@ -54,8 +55,8 @@ const BinSelection: React.FC<BinSelectionProps> = ({
       
       <div className="grid grid-cols-1 gap-2 mb-6">
         {bins.map((bin) => {
-          // Create a unique identifier for this bin
-          const binKey = `${bin.id}-${bin.name}`;
+          // Create a unique identifier for this bin including size and UOM
+          const binKey = createBinKey(bin);
           const isCompleted = completedBinIds.includes(binKey);
           const isMissing = missingBinIds.includes(binKey);
           

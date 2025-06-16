@@ -54,6 +54,7 @@ const BinTallyFormEdit: React.FC = () => {
   const [binTypes, setBinTypes] = useState<BinType[]>([]);
   const [loading, setLoading] = useState(false);
   const [fetchingData, setFetchingData] = useState(isEditing);
+  const [originalBinIds, setOriginalBinIds] = useState<string[]>([]);
 
   useEffect(() => {
     const fetchBinTypes = async () => {
@@ -106,6 +107,11 @@ const BinTallyFormEdit: React.FC = () => {
             .select('*')
             .eq('form_id', id);
           if (binsError) throw binsError;
+          
+          // Store original bin IDs for tracking deletions
+          const existingBinIds = formBins?.map(bin => bin.id) || [];
+          setOriginalBinIds(existingBinIds);
+          
           setFormData({
             title: formData.title,
             description: formData.description || '',
@@ -151,20 +157,6 @@ const BinTallyFormEdit: React.FC = () => {
   };
 
   const handleBinTypeChange = (value: string, index: number) => {
-    // Check if this bin type is already selected in another row
-    const isAlreadySelected = formData.bins.some((bin, binIndex) => 
-      binIndex !== index && bin.bin_type_id === value
-    );
-    
-    if (isAlreadySelected) {
-      toast({
-        title: "Duplicate Bin Type",
-        description: "This bin type has already been selected. Please choose a different bin type.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
     const updatedBins = [...formData.bins];
     updatedBins[index].bin_type_id = value;
     setFormData(prev => ({ ...prev, bins: updatedBins }));
@@ -191,19 +183,6 @@ const BinTallyFormEdit: React.FC = () => {
   };
 
   const addBinRow = () => {
-    // Check if all available bin types have been selected
-    const selectedBinTypeIds = formData.bins.map(bin => bin.bin_type_id).filter(id => id);
-    const availableBinTypes = binTypes.filter(type => !selectedBinTypeIds.includes(type.id));
-    
-    if (availableBinTypes.length === 0) {
-      toast({
-        title: "No More Bin Types Available",
-        description: "All available bin types have already been selected.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
     setFormData(prev => ({
       ...prev,
       bins: [...prev.bins, { bin_type_id: '', bin_size: '', bin_uom: '', quantity: 1 }]
@@ -309,6 +288,22 @@ const BinTallyFormEdit: React.FC = () => {
       });
       return;
     }
+    
+    // Check for duplicate combinations of bin type + size + UOM
+    const combinations = formData.bins.map(bin => `${bin.bin_type_id}-${bin.bin_size}-${bin.bin_uom}`);
+    const duplicateCombinations = combinations.filter((combo, index) => 
+      combinations.indexOf(combo) !== index && combo !== '--' // Ignore empty combinations
+    );
+    
+    if (duplicateCombinations.length > 0) {
+      toast({
+        title: "Duplicate Bin Configuration",
+        description: "Each combination of bin type, size, and unit of measurement must be unique.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     const invalidBin = formData.bins.find(bin => isNaN(bin.quantity) || bin.quantity < 1 || bin.quantity > 99);
     if (invalidBin) {
       toast({
@@ -323,6 +318,9 @@ const BinTallyFormEdit: React.FC = () => {
 
     try {
       if (isEditing) {
+        console.log('Updating form with bins:', formData.bins);
+        
+        // Update form details
         const { error: formError } = await supabase
           .from('bin_tally_forms')
           .update({
@@ -336,45 +334,57 @@ const BinTallyFormEdit: React.FC = () => {
 
         if (formError) throw formError;
 
-        for (const bin of formData.bins) {
-          if (bin.id) {
-            const { error } = await supabase
-              .from('form_bins')
-              .update({
-                bin_type_id: bin.bin_type_id,
-                bin_size: bin.bin_size,
-                bin_uom: bin.bin_uom,
-                quantity: bin.quantity,
-                updated_at: new Date().toISOString()
-              })
-              .eq('id', bin.id);
-            if (error) throw error;
-          } else {
-            const { error } = await supabase
-              .from('form_bins')
-              .insert({
-                form_id: id,
-                bin_type_id: bin.bin_type_id,
-                bin_size: bin.bin_size,
-                bin_uom: bin.bin_uom,
-                quantity: bin.quantity
-              });
-            if (error) throw error;
-          }
+        // Handle bins: separate existing bins from new bins
+        const binsToUpdate = formData.bins.filter(bin => bin.id);
+        const binsToInsert = formData.bins.filter(bin => !bin.id);
+        
+        console.log('Bins to update:', binsToUpdate);
+        console.log('Bins to insert:', binsToInsert);
+
+        // Update existing bins
+        for (const bin of binsToUpdate) {
+          const { error } = await supabase
+            .from('form_bins')
+            .update({
+              bin_type_id: bin.bin_type_id,
+              bin_size: bin.bin_size,
+              bin_uom: bin.bin_uom,
+              quantity: bin.quantity,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', bin.id);
+          if (error) throw error;
         }
 
-        if (formData.bins.length > 0) {
-          const existingBinIds = formData.bins
-            .filter(bin => bin.id)
-            .map(bin => bin.id);
-          if (existingBinIds.length > 0) {
-            const { error } = await supabase
-              .from('form_bins')
-              .delete()
-              .eq('form_id', id)
-              .not('id', 'in', `(${existingBinIds.join(',')})`);
-            if (error) throw error;
-          }
+        // Insert new bins
+        if (binsToInsert.length > 0) {
+          const newBinsData = binsToInsert.map(bin => ({
+            form_id: id,
+            bin_type_id: bin.bin_type_id,
+            bin_size: bin.bin_size,
+            bin_uom: bin.bin_uom,
+            quantity: bin.quantity
+          }));
+          
+          console.log('Inserting new bins:', newBinsData);
+          
+          const { error } = await supabase
+            .from('form_bins')
+            .insert(newBinsData);
+          if (error) throw error;
+        }
+
+        // Delete removed bins (bins that were in original but not in current)
+        const currentBinIds = binsToUpdate.map(bin => bin.id);
+        const binsToDelete = originalBinIds.filter(originalId => !currentBinIds.includes(originalId));
+        
+        if (binsToDelete.length > 0) {
+          console.log('Deleting bins:', binsToDelete);
+          const { error } = await supabase
+            .from('form_bins')
+            .delete()
+            .in('id', binsToDelete);
+          if (error) throw error;
         }
 
         toast({
