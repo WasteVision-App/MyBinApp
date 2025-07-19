@@ -3,8 +3,8 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const SUPABASE_URL = Deno.env.get('SUPABASE_URL')
-const SUPABASE_PUBLISHABLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+const SUPABASE_URL = Deno.env.get('VITE_SUPABASE_URL')
+const SUPABASE_PUBLISHABLE_KEY = Deno.env.get('VITE_SUPABASE_ANON_KEY')
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
