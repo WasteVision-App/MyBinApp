@@ -2,7 +2,6 @@
     "name": "mybinapp",
     "compatibility_date": "2025-05-20",  
     "main": "worker.js", // <--- Make sure this points to your file
-    "type": "module",
     "assets": {
      "directory": "./dist"
      }
