@@ -1,7 +1,13 @@
 {
     "name": "mybinapp",
-    "compatibility_date": "2025-05-20",
-     "assets": {
+    "compatibility_date": "2025-05-20",  
+    "main": "worker.js", // <--- Make sure this points to your file
+    "type": "module",
+    "site": {
+      "bucket": "./build", // Or wherever your React build output is
+      "entry-point": "index.html"
+    },
+    "assets": {
      "directory": "./dist"
      }
-}
+  }
